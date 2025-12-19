@@ -26,6 +26,16 @@ tm completion zsh --install
 # Add to ~/.zshrc: fpath+=~/.zfunc; autoload -Uz compinit; compinit
 ```
 
+## Claude Code Skill
+
+```bash
+# Global
+cp -r skills/task-manager ~/.claude/skills/
+
+# Or project-specific
+cp -r skills/task-manager .claude/skills/
+```
+
 ## MCP Tools
 
 - `list_projects` - List all projects

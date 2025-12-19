@@ -1,3 +1,8 @@
+---
+name: task-manager
+description: "Manage development tasks via md-task-mcp MCP server. Use when user asks about tasks, projects, or task management."
+---
+
 # Task Manager Skill
 
 Use md-task-mcp to manage development tasks.
