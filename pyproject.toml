@@ -1,0 +1,20 @@
+[project]
+name = "md-task-mcp"
+version = "0.1.0"
+description = "MCP server for markdown-based task management"
+requires-python = ">=3.10"
+dependencies = [
+    "fastmcp>=2.0",
+    "click>=8.0",
+]
+
+[project.scripts]
+md-task-mcp = "main:main"
+tm = "cli:main"
+
+[tool.setuptools]
+py-modules = ["core", "main", "cli"]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
