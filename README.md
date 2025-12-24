@@ -61,15 +61,24 @@ claude mcp add --scope user md-task-mcp -- md-task-mcp
 claude mcp add md-task-mcp -- md-task-mcp
 ```
 
-## MCP Tools
+## MCP Tools (3 optimized tools)
 
-- `list_projects` - List all projects
-- `list_tasks` - List tasks for a project
-- `read_task` - Read full task details including plan
-- `read_plan` - Read implementation plan
-- `write_requirements` - Write/update task plan
-- `update_task` - Update task fields (status, worktree, dates)
-- `create_task` - Create a new task
+### `tasks` - Universal Read
+```
+tasks()                    # List all projects with task summaries
+tasks("my-project")        # List tasks in project
+tasks("my-project", 1)     # Get full task details including plan
+```
+
+### `create_task` - Create
+```
+create_task(project, description, body?, plan?)
+```
+
+### `update_task` - Update Any Field
+```
+update_task(project, number, description?, status?, plan?, body?, worktree?, started?, completed?)
+```
 
 ## File Structure
 

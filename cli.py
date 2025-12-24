@@ -83,7 +83,51 @@ def select_project(prompt_text: str = "Select project") -> str | None:
 # Main CLI group
 # ============================================================================
 
-@click.group()
+class AliasedGroup(click.Group):
+    """Click group that shows aliases together with commands."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._aliases: dict[str, str] = {}  # alias -> command name
+
+    def add_alias(self, alias: str, cmd_name: str):
+        """Register an alias for a command."""
+        self._aliases[alias] = cmd_name
+
+    def get_command(self, ctx, cmd_name):
+        # Resolve alias to actual command
+        if cmd_name in self._aliases:
+            cmd_name = self._aliases[cmd_name]
+        return super().get_command(ctx, cmd_name)
+
+    def list_commands(self, ctx):
+        # Only return actual commands, not aliases
+        return [cmd for cmd in super().list_commands(ctx) if cmd not in self._aliases]
+
+    def format_commands(self, ctx, formatter):
+        """Format commands with their aliases."""
+        commands = []
+        for subcommand in self.list_commands(ctx):
+            cmd = self.get_command(ctx, subcommand)
+            if cmd is None or cmd.hidden:
+                continue
+
+            # Find aliases for this command
+            aliases = sorted([a for a, c in self._aliases.items() if c == subcommand])
+            if aliases:
+                name = f"{subcommand}, {', '.join(aliases)}"
+            else:
+                name = subcommand
+
+            help_text = cmd.get_short_help_str(limit=formatter.width)
+            commands.append((name, help_text))
+
+        if commands:
+            with formatter.section("Commands"):
+                formatter.write_dl(commands)
+
+
+@click.group(cls=AliasedGroup)
 @click.version_option(version="0.1.0", prog_name="tm")
 def cli():
     """Task management CLI."""
@@ -94,7 +138,7 @@ def cli():
 # Project commands: tm project / tm p
 # ============================================================================
 
-@cli.group("project", invoke_without_command=True)
+@cli.group("project", cls=AliasedGroup, invoke_without_command=True)
 @click.pass_context
 def project_group(ctx):
     """Project management commands."""
@@ -140,14 +184,14 @@ def project_add(name: str):
 
 
 # Aliases for project subcommands
-project_group.add_command(project_list, name="ls")
+project_group.add_alias("ls", "list")
 
 
 # ============================================================================
 # Task commands: tm task / tm t
 # ============================================================================
 
-@cli.group("task", invoke_without_command=True)
+@cli.group("task", cls=AliasedGroup, invoke_without_command=True)
 @click.pass_context
 def task_group(ctx):
     """Task management commands."""
@@ -324,15 +368,15 @@ def _print_task_details(task: Task):
 
 
 # Aliases for task subcommands
-task_group.add_command(task_list, name="ls")
+task_group.add_alias("ls", "list")
 
 
 # ============================================================================
 # Top-level aliases: tm p -> tm project, tm t -> tm task
 # ============================================================================
 
-cli.add_command(project_group, name="p")
-cli.add_command(task_group, name="t")
+cli.add_alias("p", "project")
+cli.add_alias("t", "task")
 
 
 # ============================================================================

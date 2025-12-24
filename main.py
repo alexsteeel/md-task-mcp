@@ -1,15 +1,10 @@
 """
 MD-Task-MCP: Markdown-based task management MCP server for Claude Code.
 
-Folder structure:
-~/.md-task-mcp/
-├── project-name/
-│   └── tasks/
-│       ├── 001-add-user-auth.md
-│       ├── 002-fix-login-bug.md
-│       └── ...
-
-Each task file contains metadata, description, and plan in one place.
+Optimized 3-tool design:
+- tasks()              - Universal read (list projects, tasks, or get task details)
+- create_task()        - Create new task
+- update_task()        - Update any task field
 """
 
 from __future__ import annotations
@@ -27,168 +22,67 @@ from core import (
     list_projects as _list_projects,
 )
 
-# Initialize FastMCP server
 mcp = FastMCP("md-task-mcp")
 
 
 @mcp.tool
-def list_projects() -> list[str]:
+def tasks(project: str | None = None, number: int | None = None) -> dict | list:
     """
-    List all projects in the task management system.
-
-    Returns a list of project names (folder names in ~/.md-task-mcp).
-    """
-    return _list_projects()
-
-
-@mcp.tool
-def list_tasks(project: str) -> list[dict]:
-    """
-    List all tasks for a given project.
+    Universal task query tool.
 
     Args:
-        project: Name of the project
+        project: Optional project name to filter by
+        number: Optional task number (requires project)
 
     Returns:
-        List of task summaries with number, description, and status
-    """
-    project_dir = get_project_dir(project)
+        - tasks() → list of projects with task summaries
+        - tasks(project) → list of tasks in project
+        - tasks(project, number) → full task details including plan
 
+    Examples:
+        tasks()                    # List all projects with task counts
+        tasks("my-project")        # List tasks in my-project
+        tasks("my-project", 1)     # Get full details of task #1
+    """
+    # No args: list all projects with task summaries
+    if project is None:
+        projects = _list_projects()
+        result = []
+        for proj in projects:
+            proj_tasks = _list_tasks(proj)
+            result.append({
+                "project": proj,
+                "task_count": len(proj_tasks),
+                "by_status": {
+                    "work": sum(1 for t in proj_tasks if t.status == "work"),
+                    "todo": sum(1 for t in proj_tasks if t.status == "todo"),
+                    "done": sum(1 for t in proj_tasks if t.status == "done"),
+                },
+                "tasks": [
+                    {"number": t.number, "description": t.description, "status": t.status}
+                    for t in proj_tasks
+                ],
+            })
+        return result
+
+    # Project specified: check it exists
+    project_dir = get_project_dir(project)
     if not project_dir.exists():
         raise ValueError(f"Project '{project}' does not exist")
 
-    tasks = _list_tasks(project)
-    return [
-        {
-            "number": t.number,
-            "description": t.description,
-            "status": t.status,
-        }
-        for t in tasks
-    ]
+    # Project only: list tasks in project
+    if number is None:
+        proj_tasks = _list_tasks(project)
+        return [
+            {"number": t.number, "description": t.description, "status": t.status}
+            for t in proj_tasks
+        ]
 
-
-@mcp.tool
-def read_task(project: str, task_number: int) -> dict:
-    """
-    Read full details of a specific task including plan.
-
-    Args:
-        project: Name of the project
-        task_number: Task number to read
-
-    Returns:
-        Full task details including description and plan
-    """
-    project_dir = get_project_dir(project)
-
-    if not project_dir.exists():
-        raise ValueError(f"Project '{project}' does not exist")
-
-    task = _read_task(project, task_number)
+    # Project + number: get full task details
+    task = _read_task(project, number)
     if task is None:
-        raise ValueError(f"Task #{task_number} not found in project '{project}'")
+        raise ValueError(f"Task #{number} not found in project '{project}'")
 
-    return task.to_dict()
-
-
-@mcp.tool
-def read_plan(project: str, task_number: int) -> str | None:
-    """
-    Read the implementation requirements/plan for a task.
-
-    Args:
-        project: Name of the project
-        task_number: Task number to read plan for
-
-    Returns:
-        Plan content as string, or None if no plan exists
-    """
-    project_dir = get_project_dir(project)
-
-    if not project_dir.exists():
-        raise ValueError(f"Project '{project}' does not exist")
-
-    task = _read_task(project, task_number)
-    if task is None:
-        raise ValueError(f"Task #{task_number} not found in project '{project}'")
-
-    return task.plan if task.plan else None
-
-
-@mcp.tool
-def write_requirements(project: str, task_number: int, content: str) -> str:
-    """
-    Write or update implementation requirements/plan for a task.
-
-    Args:
-        project: Name of the project
-        task_number: Task number to write requirements for
-        content: The requirements/plan content to write
-
-    Returns:
-        Path to the updated task file
-    """
-    project_dir = get_project_dir(project)
-
-    if not project_dir.exists():
-        raise ValueError(f"Project '{project}' does not exist")
-
-    task = _read_task(project, task_number)
-    if task is None:
-        raise ValueError(f"Task #{task_number} not found in project '{project}'")
-
-    task.plan = content
-    task_path = write_task(project, task)
-
-    return str(task_path)
-
-
-@mcp.tool
-def update_task(
-    project: str,
-    task_number: int,
-    status: str | None = None,
-    worktree: str | None = None,
-    started: str | None = None,
-    completed: str | None = None,
-) -> dict:
-    """
-    Update task fields.
-
-    Args:
-        project: Name of the project
-        task_number: Task number to update
-        status: New status (todo, work, done)
-        worktree: Git worktree path
-        started: Started date (YYYY-MM-DD)
-        completed: Completed date (YYYY-MM-DD)
-
-    Returns:
-        Updated task details
-    """
-    project_dir = get_project_dir(project)
-
-    if not project_dir.exists():
-        raise ValueError(f"Project '{project}' does not exist")
-
-    if status and status not in VALID_STATUSES:
-        raise ValueError(f"Invalid status '{status}'. Must be one of: {VALID_STATUSES}")
-
-    task = _read_task(project, task_number)
-    if task is None:
-        raise ValueError(f"Task #{task_number} not found in project '{project}'")
-
-    if status:
-        task.status = status
-    if worktree is not None:
-        task.worktree = worktree if worktree else None
-    if started is not None:
-        task.started = started if started else None
-    if completed is not None:
-        task.completed = completed if completed else None
-
-    write_task(project, task)
     return task.to_dict()
 
 
@@ -203,7 +97,7 @@ def create_task(
     Create a new task in a project.
 
     Args:
-        project: Name of the project (created if doesn't exist)
+        project: Project name (created if doesn't exist)
         description: Short task description (used in filename)
         body: Optional detailed description
         plan: Optional implementation plan
@@ -227,6 +121,67 @@ def create_task(
     result = task.to_dict()
     result["file_path"] = str(task_path)
     return result
+
+
+@mcp.tool
+def update_task(
+    project: str,
+    number: int,
+    description: str | None = None,
+    status: str | None = None,
+    plan: str | None = None,
+    body: str | None = None,
+    worktree: str | None = None,
+    started: str | None = None,
+    completed: str | None = None,
+) -> dict:
+    """
+    Update any task field.
+
+    Args:
+        project: Project name
+        number: Task number to update
+        description: New short description
+        status: New status (todo, work, done)
+        plan: New implementation plan content
+        body: New detailed description
+        worktree: Git worktree path
+        started: Started date (YYYY-MM-DD)
+        completed: Completed date (YYYY-MM-DD)
+
+    Returns:
+        Updated task details
+    """
+    project_dir = get_project_dir(project)
+
+    if not project_dir.exists():
+        raise ValueError(f"Project '{project}' does not exist")
+
+    if status and status not in VALID_STATUSES:
+        raise ValueError(f"Invalid status '{status}'. Must be one of: {VALID_STATUSES}")
+
+    task = _read_task(project, number)
+    if task is None:
+        raise ValueError(f"Task #{number} not found in project '{project}'")
+
+    # Update fields if provided
+    if description is not None:
+        task.description = description
+    if status is not None:
+        task.status = status
+    if plan is not None:
+        task.plan = plan
+    if body is not None:
+        task.body = body
+    if worktree is not None:
+        task.worktree = worktree if worktree else None
+    if started is not None:
+        task.started = started if started else None
+    if completed is not None:
+        task.completed = completed if completed else None
+
+    write_task(project, task)
+    return task.to_dict()
 
 
 def main():
