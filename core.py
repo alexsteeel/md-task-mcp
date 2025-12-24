@@ -3,12 +3,33 @@ Core utilities for md-task-mcp.
 
 Shared constants, data classes, and functions used by both
 the MCP server and CLI tool.
+
+File structure:
+~/.md-task-mcp/
+├── project-name/
+│   └── tasks/
+│       ├── 001-add-user-auth.md
+│       ├── 002-fix-login-bug.md
+│       └── ...
+
+Each task file format:
+# Task {N}: {description}
+status: todo|work|done
+worktree: /optional/path
+started: YYYY-MM-DD
+completed: YYYY-MM-DD
+
+## Description
+Task description here.
+
+## Plan
+Implementation plan here.
 """
 
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 # Constants
@@ -18,7 +39,7 @@ VALID_STATUSES = {"todo", "work", "done"}
 
 @dataclass
 class Task:
-    """Represents a task from tasks.md."""
+    """Represents a task (one file per task)."""
 
     number: int
     description: str = ""
@@ -26,7 +47,9 @@ class Task:
     status: str = "todo"
     started: str | None = None
     completed: str | None = None
-    body: str = ""
+    body: str = ""  # Description section content
+    plan: str = ""  # Plan section content
+    file_path: Path | None = field(default=None, repr=False)
 
     def to_dict(self) -> dict:
         """Convert task to dictionary."""
@@ -38,6 +61,7 @@ class Task:
             "started": self.started,
             "completed": self.completed,
             "body": self.body.strip(),
+            "plan": self.plan.strip(),
         }
 
 
@@ -52,8 +76,17 @@ def get_project_dir(project: str, create: bool = False) -> Path:
     project_dir = BASE_DIR / project
     if create:
         project_dir.mkdir(parents=True, exist_ok=True)
-        (project_dir / "plans").mkdir(exist_ok=True)
+        (project_dir / "tasks").mkdir(exist_ok=True)
     return project_dir
+
+
+def get_tasks_dir(project: str, create: bool = False) -> Path:
+    """Get tasks directory for a project."""
+    project_dir = get_project_dir(project, create=create)
+    tasks_dir = project_dir / "tasks"
+    if create:
+        tasks_dir.mkdir(exist_ok=True)
+    return tasks_dir
 
 
 def slugify(text: str) -> str:
@@ -64,91 +97,132 @@ def slugify(text: str) -> str:
     return text[:50].strip("-")
 
 
-def parse_tasks_file(path: Path) -> list[Task]:
+def get_task_filename(number: int, description: str) -> str:
+    """Generate task filename: NNN-slug.md"""
+    slug = slugify(description) or "untitled"
+    return f"{number:03d}-{slug}.md"
+
+
+def parse_task_file(path: Path) -> Task | None:
     """
-    Parse tasks.md file into list of Task objects.
+    Parse a single task file into a Task object.
 
     Format:
-    # 1
-    short_description: Some description
-    git_worktree: /path/to/worktree
-    status: todo
-    started_at: 2024-01-01
-    completed_at:
+    # Task {N}: {description}
+    status: todo|work|done
+    worktree: /optional/path
+    started: YYYY-MM-DD
+    completed: YYYY-MM-DD
 
-    Multiline description here.
+    ## Description
+    Task description here.
+
+    ## Plan
+    Implementation plan here.
     """
     if not path.exists():
-        return []
-
-    tasks: list[Task] = []
-    current_task: Task | None = None
-    in_body = False
+        return None
 
     content = path.read_text(encoding="utf-8")
     lines = content.split("\n")
 
-    task_header_pattern = re.compile(r"^#\s+(\d+)\s*$")
+    # Parse header: # Task {N}: {description}
+    header_pattern = re.compile(r"^#\s+Task\s+(\d+):\s*(.*)$")
     metadata_pattern = re.compile(r"^(\w+):\s*(.*)$")
+
+    task: Task | None = None
+    current_section: str | None = None  # None, "description", "plan"
+    section_content: list[str] = []
 
     for line in lines:
         # Check for task header
-        header_match = task_header_pattern.match(line)
+        header_match = header_pattern.match(line)
         if header_match:
-            # Save previous task
-            if current_task is not None:
-                tasks.append(current_task)
-            # Start new task
-            current_task = Task(number=int(header_match.group(1)))
-            in_body = False
+            task = Task(
+                number=int(header_match.group(1)),
+                description=header_match.group(2).strip(),
+                file_path=path,
+            )
             continue
 
-        if current_task is None:
+        if task is None:
             continue
 
-        # Check for metadata line
-        if not in_body:
+        # Check for section headers
+        if line.strip().lower() == "## description":
+            if current_section == "plan":
+                task.plan = "\n".join(section_content).strip()
+            current_section = "description"
+            section_content = []
+            continue
+        elif line.strip().lower() == "## plan":
+            if current_section == "description":
+                task.body = "\n".join(section_content).strip()
+            current_section = "plan"
+            section_content = []
+            continue
+
+        # Check for metadata (only before sections)
+        if current_section is None:
             metadata_match = metadata_pattern.match(line)
             if metadata_match:
-                key = metadata_match.group(1)
+                key = metadata_match.group(1).lower()
                 value = metadata_match.group(2).strip()
-                if key == "description":
-                    current_task.description = value
+                if key == "status":
+                    task.status = value if value in VALID_STATUSES else "todo"
                 elif key == "worktree":
-                    current_task.worktree = value if value else None
-                elif key == "status":
-                    current_task.status = value if value in VALID_STATUSES else "todo"
+                    task.worktree = value if value else None
                 elif key == "started":
-                    current_task.started = value if value else None
+                    task.started = value if value else None
                 elif key == "completed":
-                    current_task.completed = value if value else None
-                continue
-            elif line.strip() == "":
-                # Empty line after metadata -> switch to body
-                in_body = True
+                    task.completed = value if value else None
                 continue
 
-        # Body lines
-        if in_body or line.strip():
-            in_body = True
-            current_task.body += line + "\n"
+        # Collect section content
+        if current_section is not None:
+            section_content.append(line)
 
-    # Don't forget last task
-    if current_task is not None:
-        tasks.append(current_task)
+    # Save last section
+    if task and current_section == "description":
+        task.body = "\n".join(section_content).strip()
+    elif task and current_section == "plan":
+        task.plan = "\n".join(section_content).strip()
 
-    return tasks
+    return task
 
 
-def find_plan_file(project_dir: Path, task_num: int) -> Path | None:
-    """Find existing plan file for a task number."""
-    plans_dir = project_dir / "plans"
-    if not plans_dir.exists():
+def list_tasks(project: str) -> list[Task]:
+    """List all tasks for a project by reading individual task files."""
+    tasks_dir = get_tasks_dir(project)
+    if not tasks_dir.exists():
+        return []
+
+    tasks: list[Task] = []
+    for task_file in sorted(tasks_dir.glob("*.md")):
+        task = parse_task_file(task_file)
+        if task:
+            tasks.append(task)
+
+    return sorted(tasks, key=lambda t: t.number)
+
+
+def find_task_file(project: str, task_number: int) -> Path | None:
+    """Find existing task file by number."""
+    tasks_dir = get_tasks_dir(project)
+    if not tasks_dir.exists():
         return None
 
-    pattern = f"task-{task_num}-*.md"
-    matches = list(plans_dir.glob(pattern))
+    pattern = f"{task_number:03d}-*.md"
+    matches = list(tasks_dir.glob(pattern))
     return matches[0] if matches else None
+
+
+def read_task(project: str, task_number: int) -> Task | None:
+    """Read a specific task by number."""
+    task_file = find_task_file(project, task_number)
+    if task_file is None:
+        return None
+    return parse_task_file(task_file)
 
 
 def list_projects() -> list[str]:
@@ -164,23 +238,48 @@ def list_projects() -> list[str]:
 
 
 def task_to_string(task: Task) -> str:
-    """Convert a Task object back to markdown string."""
+    """Convert a Task object to markdown string."""
     lines = [
-        f"# {task.number}",
-        f"description: {task.description}",
-        f"worktree: {task.worktree or ''}",
+        f"# Task {task.number}: {task.description}",
         f"status: {task.status}",
+        f"worktree: {task.worktree or ''}",
         f"started: {task.started or ''}",
         f"completed: {task.completed or ''}",
+        "",
+        "## Description",
     ]
     if task.body.strip():
-        lines.append("")
-        lines.append(task.body.rstrip())
+        lines.append(task.body.strip())
+    lines.append("")
+    lines.append("## Plan")
+    if task.plan.strip():
+        lines.append(task.plan.strip())
     lines.append("")
     return "\n".join(lines)
 
 
-def write_tasks_file(path: Path, tasks: list[Task]) -> None:
-    """Write list of tasks to tasks.md file."""
-    content = "\n".join(task_to_string(t) for t in tasks)
-    path.write_text(content, encoding="utf-8")
+def write_task(project: str, task: Task) -> Path:
+    """Write a task to its file. Returns the file path."""
+    tasks_dir = get_tasks_dir(project, create=True)
+
+    # Remove old file if description changed (slug changed)
+    old_file = find_task_file(project, task.number)
+    new_filename = get_task_filename(task.number, task.description)
+
+    if old_file and old_file.name != new_filename:
+        old_file.unlink()
+
+    # Write new file
+    task_path = tasks_dir / new_filename
+    task_path.write_text(task_to_string(task), encoding="utf-8")
+    task.file_path = task_path
+
+    return task_path
+
+
+def get_next_task_number(project: str) -> int:
+    """Get the next available task number for a project."""
+    tasks = list_tasks(project)
+    if not tasks:
+        return 1
+    return max(t.number for t in tasks) + 1

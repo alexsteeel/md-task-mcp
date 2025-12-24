@@ -4,9 +4,12 @@ MD-Task-MCP: Markdown-based task management MCP server for Claude Code.
 Folder structure:
 ~/.md-task-mcp/
 ├── project-name/
-│   ├── tasks.md           # Main tasks file
-│   └── plans/
-│       └── task-{N}-{slug}.md  # Requirements files
+│   └── tasks/
+│       ├── 001-add-user-auth.md
+│       ├── 002-fix-login-bug.md
+│       └── ...
+
+Each task file contains metadata, description, and plan in one place.
 """
 
 from __future__ import annotations
@@ -14,13 +17,13 @@ from __future__ import annotations
 from fastmcp import FastMCP
 
 from core import (
-    BASE_DIR,
     VALID_STATUSES,
+    Task,
     get_project_dir,
-    slugify,
-    parse_tasks_file,
-    write_tasks_file,
-    find_plan_file,
+    get_next_task_number,
+    list_tasks as _list_tasks,
+    read_task as _read_task,
+    write_task,
     list_projects as _list_projects,
 )
 
@@ -47,15 +50,14 @@ def list_tasks(project: str) -> list[dict]:
         project: Name of the project
 
     Returns:
-        List of task summaries with number, short_description, and status
+        List of task summaries with number, description, and status
     """
     project_dir = get_project_dir(project)
-    tasks_file = project_dir / "tasks.md"
 
     if not project_dir.exists():
         raise ValueError(f"Project '{project}' does not exist")
 
-    tasks = parse_tasks_file(tasks_file)
+    tasks = _list_tasks(project)
     return [
         {
             "number": t.number,
@@ -69,27 +71,25 @@ def list_tasks(project: str) -> list[dict]:
 @mcp.tool
 def read_task(project: str, task_number: int) -> dict:
     """
-    Read full details of a specific task.
+    Read full details of a specific task including plan.
 
     Args:
         project: Name of the project
         task_number: Task number to read
 
     Returns:
-        Full task details including description
+        Full task details including description and plan
     """
     project_dir = get_project_dir(project)
-    tasks_file = project_dir / "tasks.md"
 
     if not project_dir.exists():
         raise ValueError(f"Project '{project}' does not exist")
 
-    tasks = parse_tasks_file(tasks_file)
-    for task in tasks:
-        if task.number == task_number:
-            return task.to_dict()
+    task = _read_task(project, task_number)
+    if task is None:
+        raise ValueError(f"Task #{task_number} not found in project '{project}'")
 
-    raise ValueError(f"Task #{task_number} not found in project '{project}'")
+    return task.to_dict()
 
 
 @mcp.tool
@@ -109,21 +109,17 @@ def read_plan(project: str, task_number: int) -> str | None:
     if not project_dir.exists():
         raise ValueError(f"Project '{project}' does not exist")
 
-    plan_file = find_plan_file(project_dir, task_number)
-    if plan_file is None:
-        return None
+    task = _read_task(project, task_number)
+    if task is None:
+        raise ValueError(f"Task #{task_number} not found in project '{project}'")
 
-    return plan_file.read_text(encoding="utf-8")
+    return task.plan if task.plan else None
 
 
 @mcp.tool
 def write_requirements(project: str, task_number: int, content: str) -> str:
     """
-    Write or update implementation requirements for a task.
-
-    The task must already exist in tasks.md. Creates the plan file
-    at plans/task-{number}-{slug}.md where slug is derived from
-    the task's short_description.
+    Write or update implementation requirements/plan for a task.
 
     Args:
         project: Name of the project
@@ -131,43 +127,21 @@ def write_requirements(project: str, task_number: int, content: str) -> str:
         content: The requirements/plan content to write
 
     Returns:
-        Path to the created/updated plan file
+        Path to the updated task file
     """
-    project_dir = get_project_dir(project, create=True)
-    tasks_file = project_dir / "tasks.md"
+    project_dir = get_project_dir(project)
 
-    # Verify task exists
-    tasks = parse_tasks_file(tasks_file)
-    target_task = None
-    for task in tasks:
-        if task.number == task_number:
-            target_task = task
-            break
+    if not project_dir.exists():
+        raise ValueError(f"Project '{project}' does not exist")
 
-    if target_task is None:
-        raise ValueError(
-            f"Task #{task_number} not found in project '{project}'. "
-            "Create the task in tasks.md first."
-        )
+    task = _read_task(project, task_number)
+    if task is None:
+        raise ValueError(f"Task #{task_number} not found in project '{project}'")
 
-    # Generate filename
-    slug = slugify(target_task.description) or "untitled"
-    filename = f"task-{task_number}-{slug}.md"
+    task.plan = content
+    task_path = write_task(project, task)
 
-    # Ensure plans directory exists
-    plans_dir = project_dir / "plans"
-    plans_dir.mkdir(exist_ok=True)
-
-    # Remove old plan file if slug changed
-    old_plan = find_plan_file(project_dir, task_number)
-    if old_plan and old_plan.name != filename:
-        old_plan.unlink()
-
-    # Write new plan file
-    plan_path = plans_dir / filename
-    plan_path.write_text(content, encoding="utf-8")
-
-    return str(plan_path)
+    return str(task_path)
 
 
 @mcp.tool
@@ -194,7 +168,6 @@ def update_task(
         Updated task details
     """
     project_dir = get_project_dir(project)
-    tasks_file = project_dir / "tasks.md"
 
     if not project_dir.exists():
         raise ValueError(f"Project '{project}' does not exist")
@@ -202,21 +175,58 @@ def update_task(
     if status and status not in VALID_STATUSES:
         raise ValueError(f"Invalid status '{status}'. Must be one of: {VALID_STATUSES}")
 
-    tasks = parse_tasks_file(tasks_file)
-    for task in tasks:
-        if task.number == task_number:
-            if status:
-                task.status = status
-            if worktree is not None:
-                task.worktree = worktree if worktree else None
-            if started is not None:
-                task.started = started if started else None
-            if completed is not None:
-                task.completed = completed if completed else None
-            write_tasks_file(tasks_file, tasks)
-            return task.to_dict()
+    task = _read_task(project, task_number)
+    if task is None:
+        raise ValueError(f"Task #{task_number} not found in project '{project}'")
 
-    raise ValueError(f"Task #{task_number} not found in project '{project}'")
+    if status:
+        task.status = status
+    if worktree is not None:
+        task.worktree = worktree if worktree else None
+    if started is not None:
+        task.started = started if started else None
+    if completed is not None:
+        task.completed = completed if completed else None
+
+    write_task(project, task)
+    return task.to_dict()
+
+
+@mcp.tool
+def create_task(
+    project: str,
+    description: str,
+    body: str = "",
+    plan: str = "",
+) -> dict:
+    """
+    Create a new task in a project.
+
+    Args:
+        project: Name of the project (created if doesn't exist)
+        description: Short task description (used in filename)
+        body: Optional detailed description
+        plan: Optional implementation plan
+
+    Returns:
+        Created task details including number and file path
+    """
+    # Ensure project exists
+    get_project_dir(project, create=True)
+
+    task_number = get_next_task_number(project)
+    task = Task(
+        number=task_number,
+        description=description,
+        body=body,
+        plan=plan,
+    )
+
+    task_path = write_task(project, task)
+
+    result = task.to_dict()
+    result["file_path"] = str(task_path)
+    return result
 
 
 def main():

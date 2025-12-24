@@ -2,11 +2,18 @@
 tm: Simple CLI for markdown-based task management.
 
 Commands:
-    tm p,projects        List all projects
-    tm t,tasks PROJECT   List tasks for a project
-    tm i,init PROJECT    Initialize a new task
-    tm o,open PROJECT N  Open task in editor
-    tm completion SHELL  Generate shell completion
+    tm p, tm project         Project commands
+    tm p list, tm p ls, tm p List all projects
+    tm p add <name>          Add a new project
+
+    tm t, tm task            Task commands
+    tm t list, tm t ls, tm t List all tasks (tree view)
+    tm t list <project>      List tasks in specific project
+    tm t add [project]       Add a new task
+    tm t show <project> <n>  Show task details
+    tm t open <project> [n]  Open task in editor
+
+    tm completion SHELL      Generate shell completion
 """
 
 from __future__ import annotations
@@ -19,54 +26,19 @@ from pathlib import Path
 import click
 
 from core import (
+    Task,
     ensure_base_dir,
-    find_plan_file,
+    find_task_file,
     get_project_dir,
+    get_next_task_number,
     list_projects,
-    parse_tasks_file,
-    slugify,
+    list_tasks as core_list_tasks,
+    read_task,
+    write_task,
 )
 
 
-class AliasedGroup(click.Group):
-    """Click group that supports command aliases."""
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._aliases: dict[str, str] = {}
-
-    def add_alias(self, name: str, target: str):
-        self._aliases[name] = target
-
-    def get_command(self, ctx, cmd_name):
-        # Check if it's an alias
-        if cmd_name in self._aliases:
-            cmd_name = self._aliases[cmd_name]
-        return super().get_command(ctx, cmd_name)
-
-    def format_commands(self, ctx, formatter):
-        """Write all commands with their aliases."""
-        commands = []
-        for subcommand in self.list_commands(ctx):
-            cmd = self.get_command(ctx, subcommand)
-            if cmd is None or cmd.hidden:
-                continue
-
-            # Find aliases for this command
-            aliases = [a for a, t in self._aliases.items() if t == subcommand]
-            if aliases:
-                name = f"{','.join(aliases)},{subcommand}"
-            else:
-                name = subcommand
-
-            help_text = cmd.get_short_help_str(limit=formatter.width)
-            commands.append((name, help_text))
-
-        if commands:
-            with formatter.section("Commands"):
-                formatter.write_dl(commands)
-
-
+STATUS_SYMBOLS = {"todo": "[ ]", "work": "[*]", "done": "[x]"}
 
 
 def open_in_editor(file_path: Path, editor: str | None = None) -> int:
@@ -87,15 +59,52 @@ def open_in_editor(file_path: Path, editor: str | None = None) -> int:
         return e.returncode
 
 
-@click.group(cls=AliasedGroup)
+def select_project(prompt_text: str = "Select project") -> str | None:
+    """Show project list and prompt for selection."""
+    projects = list_projects()
+    if not projects:
+        click.echo("No projects found. Create one with: tm p add <name>", err=True)
+        return None
+
+    click.echo("Available projects:")
+    for i, proj in enumerate(projects, 1):
+        click.echo(f"  {i}. {proj}")
+    click.echo()
+
+    choice = click.prompt(prompt_text, type=int)
+    if 1 <= choice <= len(projects):
+        return projects[choice - 1]
+    else:
+        click.echo("Invalid selection.", err=True)
+        return None
+
+
+# ============================================================================
+# Main CLI group
+# ============================================================================
+
+@click.group()
 @click.version_option(version="0.1.0", prog_name="tm")
 def cli():
-    """Simple CLI for markdown-based task management."""
+    """Task management CLI."""
     pass
 
 
-@cli.command("projects")
-def cmd_projects():
+# ============================================================================
+# Project commands: tm project / tm p
+# ============================================================================
+
+@cli.group("project", invoke_without_command=True)
+@click.pass_context
+def project_group(ctx):
+    """Project management commands."""
+    if ctx.invoked_subcommand is None:
+        # Default: list projects
+        ctx.invoke(project_list)
+
+
+@project_group.command("list")
+def project_list():
     """List all projects."""
     projects = list_projects()
 
@@ -103,141 +112,232 @@ def cmd_projects():
         click.echo("No projects found.")
         return
 
-    for project in projects:
-        click.echo(project)
+    for proj in projects:
+        tasks = core_list_tasks(proj)
+        task_count = len(tasks)
+        if task_count > 0:
+            work = sum(1 for t in tasks if t.status == "work")
+            todo = sum(1 for t in tasks if t.status == "todo")
+            done = sum(1 for t in tasks if t.status == "done")
+            click.echo(f"{proj} ({task_count}: {work}w/{todo}t/{done}d)")
+        else:
+            click.echo(f"{proj} (empty)")
 
 
-@cli.command("new")
-@click.argument("project")
-def cmd_new(project: str):
-    """Create a new project."""
+@project_group.command("add")
+@click.argument("name")
+def project_add(name: str):
+    """Add a new project."""
     ensure_base_dir()
-    project_dir = get_project_dir(project)
+    project_dir = get_project_dir(name)
 
     if project_dir.exists():
-        click.echo(f"Project '{project}' already exists.", err=True)
+        click.echo(f"Project '{name}' already exists.", err=True)
         sys.exit(1)
 
-    get_project_dir(project, create=True)
-    click.echo(f"Created project: {project}")
+    get_project_dir(name, create=True)
+    click.echo(f"Created project: {name}")
 
 
-@cli.command("tasks")
-@click.argument("project")
-def cmd_tasks(project: str):
-    """List tasks for a project."""
+# Aliases for project subcommands
+project_group.add_command(project_list, name="ls")
+
+
+# ============================================================================
+# Task commands: tm task / tm t
+# ============================================================================
+
+@cli.group("task", invoke_without_command=True)
+@click.pass_context
+def task_group(ctx):
+    """Task management commands."""
+    if ctx.invoked_subcommand is None:
+        # Default: list all tasks (tree view)
+        ctx.invoke(task_list)
+
+
+@task_group.command("list")
+@click.argument("project", required=False)
+@click.argument("task_number", type=int, required=False)
+def task_list(project: str | None, task_number: int | None):
+    """List tasks. Without project: show tree of all. With project: list tasks."""
+    # No project - show tree of all projects and tasks
+    if project is None:
+        projects = list_projects()
+        if not projects:
+            click.echo("No projects found.")
+            return
+
+        for proj in projects:
+            tasks = core_list_tasks(proj)
+            task_count = len(tasks)
+            work_count = sum(1 for t in tasks if t.status == "work")
+            todo_count = sum(1 for t in tasks if t.status == "todo")
+            done_count = sum(1 for t in tasks if t.status == "done")
+
+            click.echo(f"{proj}/ ({task_count}: {work_count}w/{todo_count}t/{done_count}d)")
+            for task in tasks:
+                symbol = STATUS_SYMBOLS.get(task.status, "[ ]")
+                click.echo(f"  {symbol} #{task.number}: {task.description}")
+        return
+
+    # Project specified
     project_dir = get_project_dir(project)
-    tasks_file = project_dir / "tasks.md"
-
     if not project_dir.exists():
         click.echo(f"Project '{project}' does not exist.", err=True)
         sys.exit(1)
 
-    tasks = parse_tasks_file(tasks_file)
+    tasks = core_list_tasks(project)
 
     if not tasks:
-        click.echo(f"No tasks found in project '{project}'.")
+        click.echo(f"No tasks in '{project}'.")
         return
 
-    status_symbol = {"todo": "[ ]", "work": "[*]", "done": "[x]"}
+    # If task number specified, show details
+    if task_number is not None:
+        task = read_task(project, task_number)
+        if task is None:
+            click.echo(f"Task #{task_number} not found.", err=True)
+            sys.exit(1)
+        _print_task_details(task)
+        return
 
+    # List tasks in project
     for task in tasks:
-        symbol = status_symbol.get(task.status, "[ ]")
+        symbol = STATUS_SYMBOLS.get(task.status, "[ ]")
         click.echo(f"{symbol} #{task.number}: {task.description}")
 
 
-@cli.command("init")
-@click.argument("project")
+@task_group.command("add")
+@click.argument("project", required=False)
 @click.option("-d", "--description", help="Task description")
 @click.option("-e", "--edit", is_flag=True, help="Open in editor after creating")
 @click.option("--editor", help="Editor to use (default: $EDITOR)")
-def cmd_init(project: str, description: str | None, edit: bool, editor: str | None):
-    """Initialize a new task in PROJECT."""
+def task_add(project: str | None, description: str | None, edit: bool, editor: str | None):
+    """Add a new task. If project not specified, prompts for selection."""
     ensure_base_dir()
-    project_dir = get_project_dir(project, create=True)
-    tasks_file = project_dir / "tasks.md"
 
-    tasks = parse_tasks_file(tasks_file)
-    next_num = max((t.number for t in tasks), default=0) + 1
+    # If no project specified, show list and ask
+    if project is None:
+        project = select_project("Project number")
+        if project is None:
+            sys.exit(1)
+
+    # Check if project exists, create if not
+    project_dir = get_project_dir(project)
+    if not project_dir.exists():
+        if click.confirm(f"Project '{project}' doesn't exist. Create it?", default=True):
+            get_project_dir(project, create=True)
+        else:
+            sys.exit(1)
 
     if not description:
-        description = click.prompt("Short description")
+        description = click.prompt("Description")
 
     if not description:
         click.echo("Description cannot be empty.", err=True)
         sys.exit(1)
 
-    task_entry = f"""# {next_num}
-description: {description}
-worktree:
-status: todo
-started:
-completed:
+    task_number = get_next_task_number(project)
+    task = Task(
+        number=task_number,
+        description=description,
+    )
 
-"""
+    task_path = write_task(project, task)
 
-    with tasks_file.open("a", encoding="utf-8") as f:
-        if tasks_file.exists() and tasks_file.stat().st_size > 0:
-            content = tasks_file.read_text(encoding="utf-8")
-            if not content.endswith("\n\n"):
-                f.write("\n" if content.endswith("\n") else "\n\n")
-        f.write(task_entry)
-
-    click.echo(f"Created task #{next_num}: {description}")
+    click.echo(f"Created #{task_number}: {description}")
+    click.echo(f"File: {task_path}")
 
     if edit:
-        sys.exit(open_in_editor(tasks_file, editor))
+        sys.exit(open_in_editor(task_path, editor))
 
 
-@cli.command("open")
+@task_group.command("show")
+@click.argument("project")
+@click.argument("task_number", type=int)
+def task_show(project: str, task_number: int):
+    """Show task details."""
+    project_dir = get_project_dir(project)
+    if not project_dir.exists():
+        click.echo(f"Project '{project}' does not exist.", err=True)
+        sys.exit(1)
+
+    task = read_task(project, task_number)
+    if task is None:
+        click.echo(f"Task #{task_number} not found.", err=True)
+        sys.exit(1)
+
+    _print_task_details(task)
+
+
+@task_group.command("open")
 @click.argument("project")
 @click.argument("task_number", type=int, required=False)
-@click.option("-p", "--plan", is_flag=True, help="Open plan file (requires task number)")
 @click.option("--editor", help="Editor to use (default: $EDITOR)")
-def cmd_open(project: str, task_number: int | None, plan: bool, editor: str | None):
-    """Open project tasks or plan file in editor."""
+def task_open(project: str, task_number: int | None, editor: str | None):
+    """Open task file in editor."""
     project_dir = get_project_dir(project)
 
     if not project_dir.exists():
         click.echo(f"Project '{project}' does not exist.", err=True)
         sys.exit(1)
 
-    tasks_file = project_dir / "tasks.md"
-
-    if plan:
-        if task_number is None:
-            click.echo("Task number required with -p/--plan flag.", err=True)
+    if task_number is None:
+        tasks = core_list_tasks(project)
+        if not tasks:
+            click.echo(f"No tasks in '{project}'.")
             sys.exit(1)
 
-        tasks = parse_tasks_file(tasks_file)
-        target_task = None
+        click.echo("Tasks:")
         for task in tasks:
-            if task.number == task_number:
-                target_task = task
-                break
+            click.echo(f"  #{task.number}: {task.description}")
+        click.echo()
+        task_number = click.prompt("Task number", type=int)
 
-        if target_task is None:
-            click.echo(f"Task #{task_number} not found.", err=True)
-            sys.exit(1)
+    task_file = find_task_file(project, task_number)
+    if task_file is None:
+        click.echo(f"Task #{task_number} not found.", err=True)
+        sys.exit(1)
 
-        plan_file = find_plan_file(project_dir, task_number)
-        if plan_file is None:
-            slug = slugify(target_task.description) or "untitled"
-            filename = f"task-{task_number}-{slug}.md"
-            plans_dir = project_dir / "plans"
-            plans_dir.mkdir(exist_ok=True)
-            plan_file = plans_dir / filename
-            plan_file.write_text(
-                f"# Task #{task_number}: {target_task.description}\n\n",
-                encoding="utf-8"
-            )
-            click.echo(f"Created plan file: {plan_file}")
-        file_to_open = plan_file
-    else:
-        file_to_open = tasks_file
+    sys.exit(open_in_editor(task_file, editor))
 
-    sys.exit(open_in_editor(file_to_open, editor))
 
+def _print_task_details(task: Task):
+    """Print full task details."""
+    click.echo(f"# Task {task.number}: {task.description}")
+    click.echo(f"status: {task.status}")
+    if task.worktree:
+        click.echo(f"worktree: {task.worktree}")
+    if task.started:
+        click.echo(f"started: {task.started}")
+    if task.completed:
+        click.echo(f"completed: {task.completed}")
+    if task.body.strip():
+        click.echo()
+        click.echo("## Description")
+        click.echo(task.body.rstrip())
+    if task.plan.strip():
+        click.echo()
+        click.echo("## Plan")
+        click.echo(task.plan.rstrip())
+
+
+# Aliases for task subcommands
+task_group.add_command(task_list, name="ls")
+
+
+# ============================================================================
+# Top-level aliases: tm p -> tm project, tm t -> tm task
+# ============================================================================
+
+cli.add_command(project_group, name="p")
+cli.add_command(task_group, name="t")
+
+
+# ============================================================================
+# Shell completion
+# ============================================================================
 
 @cli.command("completion")
 @click.argument("shell", type=click.Choice(["zsh", "bash"]))
@@ -268,15 +368,6 @@ def cmd_completion(shell: str, install: bool):
             click.echo(BASH_COMPLETION)
 
 
-# Register aliases
-cli.add_alias("p", "projects")
-cli.add_alias("n", "new")
-cli.add_alias("t", "tasks")
-cli.add_alias("i", "init")
-cli.add_alias("o", "open")
-cli.add_alias("e", "open")
-
-
 ZSH_COMPLETION = r'''#compdef tm
 
 _tm() {
@@ -286,46 +377,67 @@ _tm() {
 
     _arguments -C \
         '1: :->command' \
+        '2: :->subcommand' \
         '*: :->args'
 
     case $state in
         command)
             local commands=(
-                'p:List all projects'
-                'projects:List all projects'
-                'n:Create new project'
-                'new:Create new project'
-                't:List tasks for a project'
-                'tasks:List tasks for a project'
-                'i:Initialize a new task'
-                'init:Initialize a new task'
-                'o:Open in editor'
-                'e:Open in editor'
-                'open:Open in editor'
+                'p:Project commands'
+                'project:Project commands'
+                't:Task commands'
+                'task:Task commands'
                 'completion:Generate shell completion'
             )
             _describe 'command' commands
             ;;
+        subcommand)
+            case $line[1] in
+                p|project)
+                    local subcmds=(
+                        'list:List all projects'
+                        'ls:List all projects'
+                        'add:Add a new project'
+                    )
+                    _describe 'subcommand' subcmds
+                    ;;
+                t|task)
+                    local subcmds=(
+                        'list:List tasks'
+                        'ls:List tasks'
+                        'add:Add a new task'
+                        'show:Show task details'
+                        'open:Open task in editor'
+                    )
+                    _describe 'subcommand' subcmds
+                    ;;
+            esac
+            ;;
         args)
             case $line[1] in
-                t|tasks|i|init|o|e|open)
-                    if [[ $CURRENT -eq 3 ]]; then
-                        local projects=()
-                        [[ -d "$base_dir" ]] && projects=($(ls -1 "$base_dir" 2>/dev/null))
-                        _describe 'project' projects
-                    elif [[ $CURRENT -eq 4 && ($line[1] == o || $line[1] == e || $line[1] == open) ]]; then
-                        local project=$line[2]
-                        local tasks_file="$base_dir/$project/tasks.md"
-                        local tasks=()
-                        [[ -f "$tasks_file" ]] && tasks=($(grep -oP '^# \K\d+' "$tasks_file" 2>/dev/null))
-                        _describe 'task' tasks
-                    fi
+                p|project)
+                    case $line[2] in
+                        add)
+                            # No completion for new project name
+                            ;;
+                    esac
                     ;;
-                completion)
-                    if [[ $CURRENT -eq 3 ]]; then
-                        local shells=(zsh bash)
-                        _describe 'shell' shells
-                    fi
+                t|task)
+                    case $line[2] in
+                        list|ls|add|show|open)
+                            if [[ $CURRENT -eq 4 ]]; then
+                                local projects=()
+                                [[ -d "$base_dir" ]] && projects=($(ls -1 "$base_dir" 2>/dev/null))
+                                _describe 'project' projects
+                            elif [[ $CURRENT -eq 5 ]]; then
+                                local project=$line[3]
+                                local tasks_dir="$base_dir/$project/tasks"
+                                local tasks=()
+                                [[ -d "$tasks_dir" ]] && tasks=($(ls -1 "$tasks_dir" 2>/dev/null | grep -oP '^\d+'))
+                                _describe 'task' tasks
+                            fi
+                            ;;
+                    esac
                     ;;
             esac
             ;;
@@ -340,27 +452,43 @@ BASH_COMPLETION = r'''_tm() {
     _init_completion || return
 
     local base_dir="$HOME/.md-task-mcp"
-    local commands="p projects n new t tasks i init o e open completion"
 
     if [[ $cword -eq 1 ]]; then
-        COMPREPLY=($(compgen -W "$commands" -- "$cur"))
+        COMPREPLY=($(compgen -W "p project t task completion" -- "$cur"))
         return
     fi
 
     local cmd="${words[1]}"
 
     case $cmd in
-        t|tasks|i|init|o|e|open)
+        p|project)
             if [[ $cword -eq 2 ]]; then
-                local projects=""
-                [[ -d "$base_dir" ]] && projects=$(ls -1 "$base_dir" 2>/dev/null)
-                COMPREPLY=($(compgen -W "$projects" -- "$cur"))
-            elif [[ $cword -eq 3 && ($cmd == o || $cmd == e || $cmd == open) ]]; then
-                local project="${words[2]}"
-                local tasks_file="$base_dir/$project/tasks.md"
-                local tasks=""
-                [[ -f "$tasks_file" ]] && tasks=$(grep -oP '^# \K\d+' "$tasks_file" 2>/dev/null)
-                COMPREPLY=($(compgen -W "$tasks" -- "$cur"))
+                COMPREPLY=($(compgen -W "list ls add" -- "$cur"))
+            fi
+            ;;
+        t|task)
+            if [[ $cword -eq 2 ]]; then
+                COMPREPLY=($(compgen -W "list ls add show open" -- "$cur"))
+            elif [[ $cword -eq 3 ]]; then
+                local subcmd="${words[2]}"
+                case $subcmd in
+                    list|ls|add|show|open)
+                        local projects=""
+                        [[ -d "$base_dir" ]] && projects=$(ls -1 "$base_dir" 2>/dev/null)
+                        COMPREPLY=($(compgen -W "$projects" -- "$cur"))
+                        ;;
+                esac
+            elif [[ $cword -eq 4 ]]; then
+                local subcmd="${words[2]}"
+                case $subcmd in
+                    show|open|list|ls)
+                        local project="${words[3]}"
+                        local tasks_dir="$base_dir/$project/tasks"
+                        local tasks=""
+                        [[ -d "$tasks_dir" ]] && tasks=$(ls -1 "$tasks_dir" 2>/dev/null | grep -oP '^\d+')
+                        COMPREPLY=($(compgen -W "$tasks" -- "$cur"))
+                        ;;
+                esac
             fi
             ;;
         completion)
