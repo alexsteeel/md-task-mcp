@@ -6,11 +6,15 @@
 <header>
     <a href="/" class="back-link">&larr; Back to Projects</a>
     <h1>{{ project }}</h1>
+    <div class="view-toggle">
+        <a href="/project/{{ project }}" class="active">Cloud</a>
+        <a href="/kanban/{{ project }}">Kanban</a>
+    </div>
 </header>
 
 <div class="cloud">
     {% for t in tasks %}
-    <div class="card" data-body="{{ t.body }}" data-title="#{{ t.number }} {{ t.description }}">
+    <div class="card" data-body="{{ t.body }}" data-plan="{{ t.plan }}" data-title="#{{ t.number }} {{ t.description }}" data-project="{{ project }}" data-number="{{ t.number }}">
         <div class="card-title">#{{ t.number }} {{ t.description }}</div>
         <span class="status-badge status-{{ t.status }}">{{ t.status }}</span>
         {% if t.depends_on %}
