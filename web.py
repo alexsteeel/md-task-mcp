@@ -19,6 +19,7 @@ class TaskUpdate(BaseModel):
     body: Optional[str] = None
     plan: Optional[str] = None
     report: Optional[str] = None
+    review: Optional[str] = None
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -80,6 +81,8 @@ async def update_task(project: str, number: int, data: TaskUpdate):
         task.plan = data.plan
     if data.report is not None:
         task.report = data.report
+    if data.review is not None:
+        task.review = data.review
 
     write_task(project, task)
     return {"ok": True}

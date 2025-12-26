@@ -132,6 +132,7 @@ def update_task(
     plan: str | None = None,
     body: str | None = None,
     report: str | None = None,
+    review: str | None = None,
     worktree: str | None = None,
     started: str | None = None,
     completed: str | None = None,
@@ -148,6 +149,7 @@ def update_task(
         plan: New implementation plan content
         body: New detailed description
         report: Task completion report
+        review: Code review feedback
         worktree: Git worktree path
         started: Started date (YYYY-MM-DD)
         completed: Completed date (YYYY-MM-DD)
@@ -179,6 +181,8 @@ def update_task(
         task.body = body
     if report is not None:
         task.report = report
+    if review is not None:
+        task.review = review
     if worktree is not None:
         task.worktree = worktree if worktree else None
     if started is not None:

@@ -434,6 +434,7 @@
                 <button class="modal-tab active" data-tab="body">Description</button>
                 <button class="modal-tab" data-tab="plan">Plan</button>
                 <button class="modal-tab" data-tab="report">Report</button>
+                <button class="modal-tab" data-tab="review">Review</button>
             </div>
             <div class="modal-body" id="modal-body"></div>
             <textarea class="modal-editor" id="modal-editor"></textarea>
@@ -456,14 +457,14 @@
         const btnCancel = document.getElementById('btn-cancel');
         const tabs = document.querySelectorAll('.modal-tab');
 
-        let currentData = { body: '', plan: '', report: '' };
+        let currentData = { body: '', plan: '', report: '', review: '' };
         let currentTab = 'body';
         let currentTask = { project: '', number: 0 };
         let isEditing = false;
 
-        function openModal(title, body, plan, report, project, number) {
+        function openModal(title, body, plan, report, review, project, number) {
             modalTitle.textContent = title;
-            currentData = { body: body || '', plan: plan || '', report: report || '' };
+            currentData = { body: body || '', plan: plan || '', report: report || '', review: review || '' };
             currentTask = { project, number };
             currentTab = 'body';
             isEditing = false;
@@ -478,7 +479,7 @@
             if (isEditing) {
                 modalEditor.value = currentData[tab];
             } else {
-                const labels = { body: 'description', plan: 'plan', report: 'report' };
+                const labels = { body: 'description', plan: 'plan', report: 'report', review: 'review' };
                 const content = currentData[tab] || `_No ${labels[tab]}_`;
                 modalBody.innerHTML = marked.parse(content);
             }
@@ -553,7 +554,7 @@
             card.addEventListener('click', e => {
                 if (e.target.tagName === 'A') return;
                 openModal(card.dataset.title, card.dataset.body, card.dataset.plan,
-                         card.dataset.report, card.dataset.project, parseInt(card.dataset.number));
+                         card.dataset.report, card.dataset.review, card.dataset.project, parseInt(card.dataset.number));
             });
         });
     </script>

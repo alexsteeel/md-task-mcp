@@ -11,55 +11,100 @@ Use md-task-mcp to manage development tasks.
 
 | Tool | Description |
 |------|-------------|
-| `list_projects` | List all projects |
-| `list_tasks` | List tasks for a project |
-| `read_task` | Read full task details (includes worktree path) |
-| `read_plan` | Read implementation plan |
-| `write_requirements` | Write/update task plan |
-| `update_task` | Update task fields (status, worktree, started, completed) |
+| `tasks()` | List all projects with task counts |
+| `tasks(project)` | List tasks in a project |
+| `tasks(project, number)` | Get full task details |
+| `create_task(project, description, body?, plan?)` | Create a new task |
+| `update_task(project, number, ...)` | Update task fields |
 
-## Task Format
+## Task File Format
 
-Tasks in `~/.md-task-mcp/{project}/tasks.md`:
+Tasks stored in `~/.md-task-mcp/{project}/tasks/{NNN}-{slug}.md`:
 
-```
-# 1
-description: Task summary
-worktree: /path/to/worktree
+```markdown
+# Task 1: Task summary
 status: todo
+worktree: /path/to/worktree
 started: 2024-01-15
 completed:
+depends_on: 2, 3
 
-Detailed description here.
+## Description
+Requirements and detailed description here.
+
+## Plan
+Implementation plan here.
+
+## Report
+Completion report here.
+
+## Review
+Code review feedback here.
 ```
+
+## Task Sections
+
+| Section | Purpose |
+|---------|---------|
+| Description | Requirements, detailed task description |
+| Plan | Implementation plan, approach |
+| Report | Work completion report |
+| Review | Code review feedback |
 
 ## Workflows
 
 ### View Tasks
 
-1. `list_projects` to see available projects
-2. `list_tasks` to see tasks and their status
-3. `read_task` to get full details including worktree path
+```
+tasks()                    # List all projects
+tasks("my-project")        # List tasks in project
+tasks("my-project", 1)     # Get full task #1 details
+```
+
+### Create Task
+
+```
+create_task(
+    project="my-project",
+    description="Add user authentication",
+    body="Requirements here...",
+    plan="Implementation plan..."
+)
+```
 
 ### Update Task
 
-Use `update_task` to change status, set dates, or update worktree:
-- Set `status` to "work" when starting, "done" when complete
-- Set `started` date (YYYY-MM-DD) when beginning work
-- Set `completed` date when finished
-
-### Write Plan
-
-Use `write_requirements` to save implementation plan.
-
-Plans stored at: `~/.md-task-mcp/{project}/plans/task-{N}-{slug}.md`
-
-## Working with Worktrees
-
-When task has a `worktree` field set, that's the directory where code changes should be made. Read the task to get the worktree path before starting work.
+```
+update_task(
+    project="my-project",
+    number=1,
+    status="work",           # todo, work, done
+    started="2024-01-15",
+    body="Updated description",
+    plan="Updated plan",
+    report="Work completed",
+    review="LGTM",
+    depends_on=[2, 3],
+    worktree="/path/to/code"
+)
+```
 
 ## Status Values
 
 - `todo` - Not started
 - `work` - In progress
 - `done` - Completed
+
+## Web UI
+
+Start web interface: `tm-web`
+
+Views:
+- `/` - Projects cloud
+- `/project/{name}` - Tasks cloud view
+- `/kanban/{name}` - Kanban board view
+
+Features:
+- Click task to view Description/Plan/Report/Review
+- Edit sections inline
+- View toggle (Cloud/Kanban)
