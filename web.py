@@ -18,6 +18,7 @@ templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 class TaskUpdate(BaseModel):
     body: Optional[str] = None
     plan: Optional[str] = None
+    report: Optional[str] = None
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -77,6 +78,8 @@ async def update_task(project: str, number: int, data: TaskUpdate):
         task.body = data.body
     if data.plan is not None:
         task.plan = data.plan
+    if data.report is not None:
+        task.report = data.report
 
     write_task(project, task)
     return {"ok": True}

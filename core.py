@@ -49,6 +49,7 @@ class Task:
     completed: str | None = None
     body: str = ""  # Description section content
     plan: str = ""  # Plan section content
+    report: str = ""  # Report section content
     depends_on: list[int] = field(default_factory=list)  # Task dependencies
     file_path: Path | None = field(default=None, repr=False)
 
@@ -63,6 +64,7 @@ class Task:
             "completed": self.completed,
             "body": self.body.strip(),
             "plan": self.plan.strip(),
+            "report": self.report.strip(),
             "depends_on": self.depends_on,
         }
 
@@ -133,8 +135,18 @@ def parse_task_file(path: Path) -> Task | None:
     metadata_pattern = re.compile(r"^(\w+):\s*(.*)$")
 
     task: Task | None = None
-    current_section: str | None = None  # None, "description", "plan"
+    current_section: str | None = None  # None, "description", "plan", "report"
     section_content: list[str] = []
+
+    def save_section():
+        if task and current_section and section_content is not None:
+            content = "\n".join(section_content).strip()
+            if current_section == "description":
+                task.body = content
+            elif current_section == "plan":
+                task.plan = content
+            elif current_section == "report":
+                task.report = content
 
     for line in lines:
         # Check for task header
@@ -151,16 +163,20 @@ def parse_task_file(path: Path) -> Task | None:
             continue
 
         # Check for section headers
-        if line.strip().lower() == "## description":
-            if current_section == "plan":
-                task.plan = "\n".join(section_content).strip()
+        line_lower = line.strip().lower()
+        if line_lower == "## description":
+            save_section()
             current_section = "description"
             section_content = []
             continue
-        elif line.strip().lower() == "## plan":
-            if current_section == "description":
-                task.body = "\n".join(section_content).strip()
+        elif line_lower == "## plan":
+            save_section()
             current_section = "plan"
+            section_content = []
+            continue
+        elif line_lower == "## report":
+            save_section()
+            current_section = "report"
             section_content = []
             continue
 
@@ -191,10 +207,7 @@ def parse_task_file(path: Path) -> Task | None:
             section_content.append(line)
 
     # Save last section
-    if task and current_section == "description":
-        task.body = "\n".join(section_content).strip()
-    elif task and current_section == "plan":
-        task.plan = "\n".join(section_content).strip()
+    save_section()
 
     return task
 
@@ -264,6 +277,10 @@ def task_to_string(task: Task) -> str:
     lines.append("## Plan")
     if task.plan.strip():
         lines.append(task.plan.strip())
+    lines.append("")
+    lines.append("## Report")
+    if task.report.strip():
+        lines.append(task.report.strip())
     lines.append("")
     return "\n".join(lines)
 

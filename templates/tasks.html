@@ -14,7 +14,7 @@
 
 <div class="cloud">
     {% for t in tasks %}
-    <div class="card" data-body="{{ t.body }}" data-plan="{{ t.plan }}" data-title="#{{ t.number }} {{ t.description }}" data-project="{{ project }}" data-number="{{ t.number }}">
+    <div class="card" data-body="{{ t.body }}" data-plan="{{ t.plan }}" data-report="{{ t.report }}" data-title="#{{ t.number }} {{ t.description }}" data-project="{{ project }}" data-number="{{ t.number }}">
         <div class="card-title">#{{ t.number }} {{ t.description }}</div>
         <span class="status-badge status-{{ t.status }}">{{ t.status }}</span>
         {% if t.depends_on %}

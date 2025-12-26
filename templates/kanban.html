@@ -20,7 +20,7 @@
         </div>
         <div class="kanban-tasks">
             {% for t in board.todo %}
-            <div class="kanban-card status-todo" data-body="{{ t.body }}" data-plan="{{ t.plan }}" data-title="#{{ t.number }} {{ t.description }}" data-project="{{ project }}" data-number="{{ t.number }}">
+            <div class="kanban-card status-todo" data-body="{{ t.body }}" data-plan="{{ t.plan }}" data-report="{{ t.report }}" data-title="#{{ t.number }} {{ t.description }}" data-project="{{ project }}" data-number="{{ t.number }}">
                 <div class="kanban-card-num">#{{ t.number }}</div>
                 <div class="kanban-card-title">{{ t.description }}</div>
             </div>
@@ -35,7 +35,7 @@
         </div>
         <div class="kanban-tasks">
             {% for t in board.work %}
-            <div class="kanban-card status-work" data-body="{{ t.body }}" data-plan="{{ t.plan }}" data-title="#{{ t.number }} {{ t.description }}" data-project="{{ project }}" data-number="{{ t.number }}">
+            <div class="kanban-card status-work" data-body="{{ t.body }}" data-plan="{{ t.plan }}" data-report="{{ t.report }}" data-title="#{{ t.number }} {{ t.description }}" data-project="{{ project }}" data-number="{{ t.number }}">
                 <div class="kanban-card-num">#{{ t.number }}</div>
                 <div class="kanban-card-title">{{ t.description }}</div>
             </div>
@@ -50,7 +50,7 @@
         </div>
         <div class="kanban-tasks">
             {% for t in board.done %}
-            <div class="kanban-card status-done" data-body="{{ t.body }}" data-plan="{{ t.plan }}" data-title="#{{ t.number }} {{ t.description }}" data-project="{{ project }}" data-number="{{ t.number }}">
+            <div class="kanban-card status-done" data-body="{{ t.body }}" data-plan="{{ t.plan }}" data-report="{{ t.report }}" data-title="#{{ t.number }} {{ t.description }}" data-project="{{ project }}" data-number="{{ t.number }}">
                 <div class="kanban-card-num">#{{ t.number }}</div>
                 <div class="kanban-card-title">{{ t.description }}</div>
             </div>
