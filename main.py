@@ -134,6 +134,7 @@ def update_task(
     worktree: str | None = None,
     started: str | None = None,
     completed: str | None = None,
+    depends_on: list[int] | None = None,
 ) -> dict:
     """
     Update any task field.
@@ -148,6 +149,7 @@ def update_task(
         worktree: Git worktree path
         started: Started date (YYYY-MM-DD)
         completed: Completed date (YYYY-MM-DD)
+        depends_on: List of task numbers this task depends on
 
     Returns:
         Updated task details
@@ -179,6 +181,8 @@ def update_task(
         task.started = started if started else None
     if completed is not None:
         task.completed = completed if completed else None
+    if depends_on is not None:
+        task.depends_on = depends_on
 
     write_task(project, task)
     return task.to_dict()

@@ -6,14 +6,18 @@ requires-python = ">=3.10"
 dependencies = [
     "fastmcp>=2.0",
     "click>=8.0",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.34",
+    "jinja2>=3.1",
 ]
 
 [project.scripts]
 md-task-mcp = "main:main"
 tm = "cli:main"
+tm-web = "web:main"
 
 [tool.setuptools]
-py-modules = ["core", "main", "cli"]
+py-modules = ["core", "main", "cli", "web"]
 
 [build-system]
 requires = ["setuptools>=61.0"]

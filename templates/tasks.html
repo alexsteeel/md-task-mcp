@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}{{ project }} - Task Cloud{% endblock %}
+
+{% block content %}
+<header>
+    <a href="/" class="back-link">&larr; Back to Projects</a>
+    <h1>{{ project }}</h1>
+</header>
+
+<div class="cloud">
+    {% for t in tasks %}
+    <div class="card" data-body="{{ t.body }}" data-title="#{{ t.number }} {{ t.description }}">
+        <div class="card-title">#{{ t.number }} {{ t.description }}</div>
+        <span class="status-badge status-{{ t.status }}">{{ t.status }}</span>
+        {% if t.depends_on %}
+        <div class="depends">
+            depends:
+            {% for d in t.depends_on %}
+            <span class="depends-badge">#{{ d }}</span>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+    {% else %}
+    <p class="card-meta">No tasks yet.</p>
+    {% endfor %}
+</div>
+{% endblock %}

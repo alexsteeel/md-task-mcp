@@ -49,6 +49,7 @@ class Task:
     completed: str | None = None
     body: str = ""  # Description section content
     plan: str = ""  # Plan section content
+    depends_on: list[int] = field(default_factory=list)  # Task dependencies
     file_path: Path | None = field(default=None, repr=False)
 
     def to_dict(self) -> dict:
@@ -62,6 +63,7 @@ class Task:
             "completed": self.completed,
             "body": self.body.strip(),
             "plan": self.plan.strip(),
+            "depends_on": self.depends_on,
         }
 
 
@@ -176,6 +178,12 @@ def parse_task_file(path: Path) -> Task | None:
                     task.started = value if value else None
                 elif key == "completed":
                     task.completed = value if value else None
+                elif key == "depends_on":
+                    if value:
+                        task.depends_on = [
+                            int(x.strip()) for x in value.split(",")
+                            if x.strip().isdigit()
+                        ]
                 continue
 
         # Collect section content
@@ -239,12 +247,14 @@ def list_projects() -> list[str]:
 
 def task_to_string(task: Task) -> str:
     """Convert a Task object to markdown string."""
+    depends_str = ", ".join(map(str, task.depends_on)) if task.depends_on else ""
     lines = [
         f"# Task {task.number}: {task.description}",
         f"status: {task.status}",
         f"worktree: {task.worktree or ''}",
         f"started: {task.started or ''}",
         f"completed: {task.completed or ''}",
+        f"depends_on: {depends_str}",
         "",
         "## Description",
     ]
