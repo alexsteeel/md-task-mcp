@@ -43,7 +43,7 @@ class Task:
 
     number: int
     description: str = ""
-    worktree: str | None = None
+    branch: str | None = None
     status: str = "todo"
     started: str | None = None
     completed: str | None = None
@@ -59,7 +59,7 @@ class Task:
         return {
             "number": self.number,
             "description": self.description,
-            "worktree": self.worktree,
+            "branch": self.branch,
             "status": self.status,
             "started": self.started,
             "completed": self.completed,
@@ -197,8 +197,8 @@ def parse_task_file(path: Path) -> Task | None:
                 value = metadata_match.group(2).strip()
                 if key == "status":
                     task.status = value if value in VALID_STATUSES else "todo"
-                elif key == "worktree":
-                    task.worktree = value if value else None
+                elif key == "branch":
+                    task.branch = value if value else None
                 elif key == "started":
                     task.started = value if value else None
                 elif key == "completed":
@@ -273,7 +273,7 @@ def task_to_string(task: Task) -> str:
     lines = [
         f"# Task {task.number}: {task.description}",
         f"status: {task.status}",
-        f"worktree: {task.worktree or ''}",
+        f"branch: {task.branch or ''}",
         f"started: {task.started or ''}",
         f"completed: {task.completed or ''}",
         f"depends_on: {depends_str}",

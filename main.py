@@ -133,7 +133,7 @@ def update_task(
     body: str | None = None,
     report: str | None = None,
     review: str | None = None,
-    worktree: str | None = None,
+    branch: str | None = None,
     started: str | None = None,
     completed: str | None = None,
     depends_on: list[int] | None = None,
@@ -150,7 +150,7 @@ def update_task(
         body: New detailed description
         report: Task completion report
         review: Code review feedback
-        worktree: Git worktree path
+        branch: Git branch name
         started: Started date (YYYY-MM-DD)
         completed: Completed date (YYYY-MM-DD)
         depends_on: List of task numbers this task depends on
@@ -183,8 +183,8 @@ def update_task(
         task.report = report
     if review is not None:
         task.review = review
-    if worktree is not None:
-        task.worktree = worktree if worktree else None
+    if branch is not None:
+        task.branch = branch if branch else None
     if started is not None:
         task.started = started if started else None
     if completed is not None:

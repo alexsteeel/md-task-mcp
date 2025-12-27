@@ -24,7 +24,7 @@ Tasks stored in `~/.md-task-mcp/{project}/tasks/{NNN}-{slug}.md`:
 ```markdown
 # Task 1: Task summary
 status: todo
-worktree: /path/to/worktree
+branch: feature/task-1-summary
 started: 2024-01-15
 completed:
 depends_on: 2, 3
@@ -80,14 +80,32 @@ update_task(
     number=1,
     status="work",           # todo, work, done
     started="2024-01-15",
+    branch="feature/task-1",
     body="Updated description",
     plan="Updated plan",
     report="Work completed",
     review="LGTM",
-    depends_on=[2, 3],
-    worktree="/path/to/code"
+    depends_on=[2, 3]
 )
 ```
+
+### Start Working on Task
+
+**IMPORTANT:** When starting work on a task, ALWAYS:
+1. Get current git branch: `git branch --show-current`
+2. Update task with branch name and status:
+
+```
+update_task(
+    project="my-project",
+    number=1,
+    status="work",
+    started="YYYY-MM-DD",
+    branch="<current-git-branch>"
+)
+```
+
+This ensures the task is linked to the correct git branch for tracking.
 
 ## Status Values
 
