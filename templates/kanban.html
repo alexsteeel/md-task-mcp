@@ -13,7 +13,7 @@
 </header>
 
 <div class="kanban">
-    <div class="kanban-column col-todo">
+    <div class="kanban-column col-todo" id="col-todo">
         <div class="kanban-header">
             <span>TODO</span>
             <span class="count">{{ board.todo | length }}</span>
@@ -21,14 +21,30 @@
         <div class="kanban-tasks">
             {% for t in board.todo %}
             <div class="kanban-card status-todo" data-body="{{ t.body }}" data-plan="{{ t.plan }}" data-report="{{ t.report }}" data-review="{{ t.review }}" data-title="#{{ t.number }} {{ t.description }}" data-project="{{ project }}" data-number="{{ t.number }}">
-                <div class="kanban-card-num">#{{ t.number }}</div>
+                <div class="kanban-card-num">#{{ t.number }}{% if t.branch %}<span class="branch-badge">{{ t.branch }}</span>{% endif %}{% if t.module %}<span class="module-badge">{{ t.module }}</span>{% endif %}</div>
                 <div class="kanban-card-title">{{ t.description }}</div>
+                <div class="section-icons">
+                    <span class="section-icon {{ 'has-content' if t.body else '' }}" title="Description">D</span>
+                    <span class="section-icon {{ 'has-content' if t.plan else '' }}" title="Plan">P</span>
+                    <span class="section-icon {{ 'has-content' if t.report else '' }}" title="Report">RP</span>
+                    <span class="section-icon {{ 'has-content' if t.review else '' }}" title="Review">RV</span>
+                </div>
+                {% if t.depends_on %}
+                <div class="blocked-by">
+                    blocked:
+                    {% for d in t.depends_on %}
+                    <span class="blocked-badge">#{{ d }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
             </div>
             {% endfor %}
         </div>
     </div>
 
-    <div class="kanban-column col-work">
+    <div class="kanban-divider" id="divider-1"></div>
+
+    <div class="kanban-column col-work" id="col-work">
         <div class="kanban-header">
             <span>IN WORK</span>
             <span class="count">{{ board.work | length }}</span>
@@ -36,14 +52,30 @@
         <div class="kanban-tasks">
             {% for t in board.work %}
             <div class="kanban-card status-work" data-body="{{ t.body }}" data-plan="{{ t.plan }}" data-report="{{ t.report }}" data-review="{{ t.review }}" data-title="#{{ t.number }} {{ t.description }}" data-project="{{ project }}" data-number="{{ t.number }}">
-                <div class="kanban-card-num">#{{ t.number }}</div>
+                <div class="kanban-card-num">#{{ t.number }}{% if t.branch %}<span class="branch-badge">{{ t.branch }}</span>{% endif %}{% if t.module %}<span class="module-badge">{{ t.module }}</span>{% endif %}</div>
                 <div class="kanban-card-title">{{ t.description }}</div>
+                <div class="section-icons">
+                    <span class="section-icon {{ 'has-content' if t.body else '' }}" title="Description">D</span>
+                    <span class="section-icon {{ 'has-content' if t.plan else '' }}" title="Plan">P</span>
+                    <span class="section-icon {{ 'has-content' if t.report else '' }}" title="Report">RP</span>
+                    <span class="section-icon {{ 'has-content' if t.review else '' }}" title="Review">RV</span>
+                </div>
+                {% if t.depends_on %}
+                <div class="blocked-by">
+                    blocked:
+                    {% for d in t.depends_on %}
+                    <span class="blocked-badge">#{{ d }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
             </div>
             {% endfor %}
         </div>
     </div>
 
-    <div class="kanban-column col-done">
+    <div class="kanban-divider" id="divider-2"></div>
+
+    <div class="kanban-column col-done" id="col-done">
         <div class="kanban-header">
             <span>DONE</span>
             <span class="count">{{ board.done | length }}</span>
@@ -51,11 +83,103 @@
         <div class="kanban-tasks">
             {% for t in board.done %}
             <div class="kanban-card status-done" data-body="{{ t.body }}" data-plan="{{ t.plan }}" data-report="{{ t.report }}" data-review="{{ t.review }}" data-title="#{{ t.number }} {{ t.description }}" data-project="{{ project }}" data-number="{{ t.number }}">
-                <div class="kanban-card-num">#{{ t.number }}</div>
+                <div class="kanban-card-num">#{{ t.number }}{% if t.branch %}<span class="branch-badge">{{ t.branch }}</span>{% endif %}{% if t.module %}<span class="module-badge">{{ t.module }}</span>{% endif %}</div>
                 <div class="kanban-card-title">{{ t.description }}</div>
+                <div class="section-icons">
+                    <span class="section-icon {{ 'has-content' if t.body else '' }}" title="Description">D</span>
+                    <span class="section-icon {{ 'has-content' if t.plan else '' }}" title="Plan">P</span>
+                    <span class="section-icon {{ 'has-content' if t.report else '' }}" title="Report">RP</span>
+                    <span class="section-icon {{ 'has-content' if t.review else '' }}" title="Review">RV</span>
+                </div>
+                {% if t.depends_on %}
+                <div class="blocked-by">
+                    blocked:
+                    {% for d in t.depends_on %}
+                    <span class="blocked-badge">#{{ d }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
             </div>
             {% endfor %}
         </div>
     </div>
 </div>
+
+<script>
+    const kanban = document.querySelector('.kanban');
+    const cols = {
+        todo: document.getElementById('col-todo'),
+        work: document.getElementById('col-work'),
+        done: document.getElementById('col-done')
+    };
+    const dividers = [
+        document.getElementById('divider-1'),
+        document.getElementById('divider-2')
+    ];
+
+    let dragging = null;
+    let startX = 0;
+    let startWidths = {};
+
+    function saveWidths() {
+        const total = kanban.clientWidth - 20; // minus dividers
+        localStorage.setItem('kanban-widths', JSON.stringify({
+            todo: cols.todo.offsetWidth / total,
+            work: cols.work.offsetWidth / total,
+            done: cols.done.offsetWidth / total
+        }));
+    }
+
+    function restoreWidths() {
+        const saved = localStorage.getItem('kanban-widths');
+        if (saved) {
+            const w = JSON.parse(saved);
+            cols.todo.style.flex = `0 0 ${w.todo * 100}%`;
+            cols.work.style.flex = `0 0 ${w.work * 100}%`;
+            cols.done.style.flex = `0 0 ${w.done * 100}%`;
+        }
+    }
+
+    dividers.forEach((div, i) => {
+        div.addEventListener('mousedown', (e) => {
+            dragging = i;
+            startX = e.clientX;
+            startWidths = {
+                todo: cols.todo.offsetWidth,
+                work: cols.work.offsetWidth,
+                done: cols.done.offsetWidth
+            };
+            document.body.style.cursor = 'col-resize';
+            e.preventDefault();
+        });
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (dragging === null) return;
+        const delta = e.clientX - startX;
+        const minW = 150;
+
+        if (dragging === 0) {
+            const newTodo = Math.max(minW, startWidths.todo + delta);
+            const newWork = Math.max(minW, startWidths.work - delta);
+            cols.todo.style.flex = `0 0 ${newTodo}px`;
+            cols.work.style.flex = `0 0 ${newWork}px`;
+        } else {
+            const newWork = Math.max(minW, startWidths.work + delta);
+            const newDone = Math.max(minW, startWidths.done - delta);
+            cols.work.style.flex = `0 0 ${newWork}px`;
+            cols.done.style.flex = `0 0 ${newDone}px`;
+        }
+    });
+
+    document.addEventListener('mouseup', () => {
+        if (dragging !== null) {
+            dragging = null;
+            document.body.style.cursor = '';
+            saveWidths();
+        }
+    });
+
+    restoreWidths();
+</script>
 {% endblock %}

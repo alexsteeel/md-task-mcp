@@ -7,6 +7,14 @@ description: "Manage development tasks via md-task-mcp MCP server. Use when user
 
 Use md-task-mcp to manage development tasks.
 
+## Task Naming Rule
+
+Use infinitive form (что сделать?) with brief goal:
+- "Добавить справку для пользователей"
+- "Исправить ошибку авторизации"
+- "Реализовать экспорт в PDF"
+- "Обновить зависимости проекта"
+
 ## MCP Tools
 
 | Tool | Description |
@@ -24,6 +32,7 @@ Tasks stored in `~/.md-task-mcp/{project}/tasks/{NNN}-{slug}.md`:
 ```markdown
 # Task 1: Task summary
 status: todo
+module: auth
 branch: feature/task-1-summary
 started: 2024-01-15
 completed:
@@ -79,6 +88,7 @@ update_task(
     project="my-project",
     number=1,
     status="work",           # todo, work, done
+    module="auth",           # area/module name
     started="2024-01-15",
     branch="feature/task-1",
     body="Updated description",
@@ -113,6 +123,15 @@ This ensures the task is linked to the correct git branch for tracking.
 - `work` - In progress
 - `done` - Completed
 
+## Module Field
+
+Use `module` to categorize tasks by area/component:
+- `auth` - Authentication/authorization
+- `api` - API endpoints
+- `ui` - User interface
+- `db` - Database
+- Custom names as needed
+
 ## Web UI
 
 Start web interface: `tm-web`
@@ -123,6 +142,10 @@ Views:
 - `/kanban/{name}` - Kanban board view
 
 Features:
-- Click task to view Description/Plan/Report/Review
-- Edit sections inline
+- Click task to view Description/Plan/Report/Review tabs
+- Edit sections inline with markdown support
 - View toggle (Cloud/Kanban)
+- Section icons (D/P/R/V) show content status
+- Module badge on task cards
+- Blocked-by badges showing depends_on tasks
+- Drag column borders to resize (saved to localStorage)

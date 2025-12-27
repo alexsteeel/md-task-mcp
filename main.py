@@ -129,6 +129,7 @@ def update_task(
     number: int,
     description: str | None = None,
     status: str | None = None,
+    module: str | None = None,
     plan: str | None = None,
     body: str | None = None,
     report: str | None = None,
@@ -146,6 +147,7 @@ def update_task(
         number: Task number to update
         description: New short description
         status: New status (todo, work, done)
+        module: Module/area name (e.g., "auth", "api", "ui")
         plan: New implementation plan content
         body: New detailed description
         report: Task completion report
@@ -175,6 +177,8 @@ def update_task(
         task.description = description
     if status is not None:
         task.status = status
+    if module is not None:
+        task.module = module if module else None
     if plan is not None:
         task.plan = plan
     if body is not None:
