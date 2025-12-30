@@ -14,17 +14,23 @@
 
 <div class="cloud">
     {% for t in tasks %}
-    <div class="card" data-body="{{ t.body }}" data-plan="{{ t.plan }}" data-report="{{ t.report }}" data-review="{{ t.review }}" data-title="#{{ t.number }} {{ t.description }}" data-project="{{ project }}" data-number="{{ t.number }}">
+    <div class="card" data-body="{{ t.body }}" data-plan="{{ t.plan }}" data-report="{{ t.report }}" data-review="{{ t.review }}" data-title="#{{ t.number }} {{ t.description }}" data-project="{{ project }}" data-number="{{ t.number }}" data-started="{{ t.started or '' }}" data-completed="{{ t.completed or '' }}" data-branch="{{ t.branch or '' }}" data-module="{{ t.module or '' }}">
         <div class="card-title">#{{ t.number }}{% if t.branch %}<span class="branch-badge">{{ t.branch }}</span>{% endif %} {{ t.description }}{% if t.module %}<span class="module-badge">{{ t.module }}</span>{% endif %}</div>
         <div class="card-row">
             <span class="status-badge status-{{ t.status }}">{{ t.status }}</span>
             <div class="section-icons">
                 <span class="section-icon {{ 'has-content' if t.body else '' }}" title="Description">D</span>
                 <span class="section-icon {{ 'has-content' if t.plan else '' }}" title="Plan">P</span>
-                <span class="section-icon {{ 'has-content' if t.report else '' }}" title="Report">RP</span>
                 <span class="section-icon {{ 'has-content' if t.review else '' }}" title="Review">RV</span>
+                <span class="section-icon {{ 'has-content' if t.report else '' }}" title="Report">RP</span>
             </div>
         </div>
+        {% if t.started or t.completed %}
+        <div class="card-dates">
+            {% if t.started %}<span>S: {{ t.started }}</span>{% endif %}
+            {% if t.completed %}<span>C: {{ t.completed }}</span>{% endif %}
+        </div>
+        {% endif %}
         {% if t.depends_on %}
         <div class="blocked-by">
             blocked:

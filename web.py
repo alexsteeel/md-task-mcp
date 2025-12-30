@@ -3,13 +3,13 @@
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 import uvicorn
 
-from core import list_projects, list_tasks, read_task, write_task
+from core import list_projects, list_tasks, read_task, write_task, delete_task
 
 app = FastAPI(title="Task Cloud")
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
@@ -20,6 +20,7 @@ class TaskUpdate(BaseModel):
     plan: Optional[str] = None
     report: Optional[str] = None
     review: Optional[str] = None
+    description: Optional[str] = None
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -69,11 +70,11 @@ async def kanban_board(request: Request, name: str):
 
 
 @app.post("/api/task/{project}/{number}")
-async def update_task(project: str, number: int, data: TaskUpdate):
-    """Update task body or plan."""
+async def update_task_endpoint(project: str, number: int, data: TaskUpdate):
+    """Update task body, plan, or description."""
     task = read_task(project, number)
     if task is None:
-        return {"error": "Task not found"}, 404
+        raise HTTPException(status_code=404, detail="Task not found")
 
     if data.body is not None:
         task.body = data.body
@@ -83,9 +84,19 @@ async def update_task(project: str, number: int, data: TaskUpdate):
         task.report = data.report
     if data.review is not None:
         task.review = data.review
+    if data.description is not None:
+        task.description = data.description
 
     write_task(project, task)
     return {"ok": True}
+
+
+@app.delete("/api/task/{project}/{number}")
+async def delete_task_endpoint(project: str, number: int):
+    """Delete a task."""
+    if delete_task(project, number):
+        return {"ok": True}
+    raise HTTPException(status_code=404, detail="Task not found")
 
 
 def main():

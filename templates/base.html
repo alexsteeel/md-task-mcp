@@ -112,6 +112,21 @@
             max-height: 80vh;
             overflow-y: auto;
             width: 90%;
+            min-width: 400px;
+            min-height: 300px;
+            resize: both;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal.fullscreen {
+            width: 100% !important;
+            height: 100% !important;
+            max-width: 100% !important;
+            max-height: 100% !important;
+            border-radius: 0;
+            resize: none;
         }
 
         .modal-header {
@@ -119,11 +134,60 @@
             justify-content: space-between;
             align-items: flex-start;
             margin-bottom: 0.75rem;
+            gap: 0.5rem;
+        }
+
+        .modal-header-left {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .modal-title-row {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
 
         .modal-title {
             font-size: 1.1rem;
             font-weight: 600;
+        }
+
+        .modal-title-input {
+            font-size: 1.1rem;
+            font-weight: 600;
+            background: var(--bg);
+            color: var(--text);
+            border: 1px solid var(--accent);
+            border-radius: 4px;
+            padding: 0.25rem 0.5rem;
+            flex: 1;
+            display: none;
+        }
+
+        .modal-title-input.active {
+            display: block;
+        }
+
+        .modal-title.hidden {
+            display: none;
+        }
+
+        .modal-dates {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .modal-dates span {
+            margin-right: 1rem;
+        }
+
+        .modal-header-actions {
+            display: flex;
+            gap: 0.3rem;
+            align-items: center;
         }
 
         .modal-close {
@@ -137,6 +201,30 @@
 
         .modal-close:hover {
             color: var(--text);
+        }
+
+        .btn-icon {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1rem;
+            cursor: pointer;
+            padding: 0.25rem;
+            border-radius: 4px;
+        }
+
+        .btn-icon:hover {
+            color: var(--text);
+            background: var(--accent);
+        }
+
+        .btn-delete {
+            background: #c53030;
+            color: #fff;
+        }
+
+        .btn-delete:hover {
+            background: #e53e3e;
         }
 
         .modal-tabs {
@@ -170,12 +258,15 @@
         .modal-body {
             font-size: 0.9rem;
             line-height: 1.6;
+            flex: 1;
+            overflow-y: auto;
         }
 
         .modal-editor {
             display: none;
             width: 100%;
-            min-height: 300px;
+            min-height: 200px;
+            flex: 1;
             background: var(--bg);
             color: var(--text);
             border: 1px solid var(--accent);
@@ -183,7 +274,7 @@
             padding: 0.75rem;
             font-family: monospace;
             font-size: 0.85rem;
-            resize: vertical;
+            resize: none;
         }
 
         .modal-editor.active {
@@ -376,6 +467,16 @@
             margin-right: 0.1rem;
         }
 
+        .card-dates, .kanban-card-dates {
+            margin-top: 0.2rem;
+            font-size: 0.55rem;
+            color: var(--text-muted);
+        }
+
+        .card-dates span, .kanban-card-dates span {
+            margin-right: 0.5rem;
+        }
+
         /* Kanban */
         .kanban {
             display: flex;
@@ -449,7 +550,7 @@
         }
 
         .kanban-card.status-todo { border-left-color: var(--todo); }
-        .kanban-card.status-work { border-left-color: var(--work); }
+        .kanban-card.status-work { border-left-color: var(--work); color: var(--text); }
         .kanban-card.status-done { border-left-color: var(--done); }
 
         .kanban-card-title {
@@ -502,10 +603,23 @@
     {% block content %}{% endblock %}
 
     <div class="modal-overlay" id="modal">
-        <div class="modal">
+        <div class="modal" id="modal-content">
             <div class="modal-header">
-                <div class="modal-title" id="modal-title"></div>
-                <button class="modal-close" onclick="closeModal()">&times;</button>
+                <div class="modal-header-left">
+                    <div class="modal-title-row">
+                        <span class="modal-title" id="modal-title"></span>
+                        <input type="text" class="modal-title-input" id="modal-title-input" />
+                    </div>
+                    <div class="modal-dates" id="modal-dates"></div>
+                </div>
+                <div class="modal-header-actions">
+                    <button class="btn btn-edit" id="btn-edit" onclick="startEdit()" title="Edit">Edit</button>
+                    <button class="btn btn-cancel" id="btn-cancel" onclick="cancelEdit()" style="display:none">Cancel</button>
+                    <button class="btn btn-save" id="btn-save" onclick="saveEdit()" style="display:none">Save</button>
+                    <button class="btn btn-delete" id="btn-delete" onclick="deleteTask()" title="Delete">Delete</button>
+                    <button class="btn-icon" id="btn-fullscreen" onclick="toggleFullscreen()" title="Fullscreen">&#x26F6;</button>
+                    <button class="modal-close" onclick="closeModal()">&times;</button>
+                </div>
             </div>
             <div class="modal-tabs">
                 <button class="modal-tab active" data-tab="body">Description</button>
@@ -515,34 +629,47 @@
             </div>
             <div class="modal-body" id="modal-body"></div>
             <textarea class="modal-editor" id="modal-editor"></textarea>
-            <div class="modal-actions">
-                <button class="btn btn-edit" id="btn-edit" onclick="startEdit()">Edit</button>
-                <button class="btn btn-cancel" id="btn-cancel" onclick="cancelEdit()" style="display:none">Cancel</button>
-                <button class="btn btn-save" id="btn-save" onclick="saveEdit()" style="display:none">Save</button>
-            </div>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script>
         const modal = document.getElementById('modal');
+        const modalContent = document.getElementById('modal-content');
         const modalTitle = document.getElementById('modal-title');
+        const modalTitleInput = document.getElementById('modal-title-input');
+        const modalDates = document.getElementById('modal-dates');
         const modalBody = document.getElementById('modal-body');
         const modalEditor = document.getElementById('modal-editor');
         const btnEdit = document.getElementById('btn-edit');
         const btnSave = document.getElementById('btn-save');
         const btnCancel = document.getElementById('btn-cancel');
+        const btnDelete = document.getElementById('btn-delete');
+        const btnFullscreen = document.getElementById('btn-fullscreen');
         const tabs = document.querySelectorAll('.modal-tab');
 
         let currentData = { body: '', plan: '', report: '', review: '' };
         let currentTab = 'body';
-        let currentTask = { project: '', number: 0 };
+        let currentTask = { project: '', number: 0, description: '', started: '', completed: '' };
         let isEditing = false;
+        let originalDescription = '';
 
-        function openModal(title, body, plan, report, review, project, number) {
+        function openModal(title, body, plan, report, review, project, number, started, completed) {
+            const match = title.match(/^#(\d+)\s+(.*)$/);
+            const description = match ? match[2] : title;
+            originalDescription = description;
+
             modalTitle.textContent = title;
+            modalTitleInput.value = description;
+
+            // Display dates
+            let datesHtml = '';
+            if (started) datesHtml += `<span>Started: ${started}</span>`;
+            if (completed) datesHtml += `<span>Completed: ${completed}</span>`;
+            modalDates.innerHTML = datesHtml;
+
             currentData = { body: body || '', plan: plan || '', report: report || '', review: review || '' };
-            currentTask = { project, number };
+            currentTask = { project, number, description, started: started || '', completed: completed || '' };
             currentTab = 'body';
             isEditing = false;
             showTab('body');
@@ -564,13 +691,34 @@
 
         function setEditMode(editing) {
             isEditing = editing;
+
+            // Fix modal size when entering edit mode
+            if (editing) {
+                const rect = modalContent.getBoundingClientRect();
+                modalContent.style.width = rect.width + 'px';
+                modalContent.style.height = rect.height + 'px';
+            } else {
+                // Reset to auto sizing when exiting edit mode
+                if (!modalContent.classList.contains('fullscreen')) {
+                    modalContent.style.width = '';
+                    modalContent.style.height = '';
+                }
+            }
+
             modalBody.classList.toggle('hidden', editing);
             modalEditor.classList.toggle('active', editing);
             btnEdit.style.display = editing ? 'none' : 'block';
             btnSave.style.display = editing ? 'block' : 'none';
             btnCancel.style.display = editing ? 'block' : 'none';
+            btnDelete.style.display = editing ? 'none' : 'block';
+
+            // Toggle title editing
+            modalTitle.classList.toggle('hidden', editing);
+            modalTitleInput.classList.toggle('active', editing);
+
             if (editing) {
                 modalEditor.value = currentData[currentTab];
+                modalTitleInput.value = currentTask.description;
                 modalEditor.focus();
             }
         }
@@ -580,13 +728,20 @@
         }
 
         function cancelEdit() {
+            modalTitleInput.value = currentTask.description;
             setEditMode(false);
             showTab(currentTab);
         }
 
         async function saveEdit() {
             const newValue = modalEditor.value;
+            const newDescription = modalTitleInput.value.trim();
             const payload = { [currentTab]: newValue };
+
+            // Add description if changed
+            if (newDescription && newDescription !== currentTask.description) {
+                payload.description = newDescription;
+            }
 
             try {
                 const res = await fetch(`/api/task/${currentTask.project}/${currentTask.number}`, {
@@ -596,15 +751,58 @@
                 });
                 if (res.ok) {
                     currentData[currentTab] = newValue;
+                    if (payload.description) {
+                        currentTask.description = newDescription;
+                        modalTitle.textContent = `#${currentTask.number} ${newDescription}`;
+                    }
                     // Update card data attribute
-                    const card = document.querySelector(`.card[data-number="${currentTask.number}"]`);
-                    if (card) card.dataset[currentTab] = newValue;
+                    const card = document.querySelector(`.card[data-number="${currentTask.number}"], .kanban-card[data-number="${currentTask.number}"]`);
+                    if (card) {
+                        card.dataset[currentTab] = newValue;
+                        if (payload.description) {
+                            card.dataset.title = `#${currentTask.number} ${newDescription}`;
+                            const titleEl = card.querySelector('.card-title, .kanban-card-title');
+                            if (titleEl) {
+                                if (card.classList.contains('kanban-card')) {
+                                    titleEl.textContent = newDescription;
+                                } else {
+                                    titleEl.innerHTML = `#${currentTask.number}${card.dataset.branch ? `<span class="branch-badge">${card.dataset.branch}</span>` : ''} ${newDescription}${card.dataset.module ? `<span class="module-badge">${card.dataset.module}</span>` : ''}`;
+                                }
+                            }
+                        }
+                    }
                     setEditMode(false);
                     showTab(currentTab);
                 }
             } catch (e) {
                 console.error('Save failed:', e);
             }
+        }
+
+        async function deleteTask() {
+            if (!confirm(`Delete task #${currentTask.number}?`)) return;
+
+            try {
+                const res = await fetch(`/api/task/${currentTask.project}/${currentTask.number}`, {
+                    method: 'DELETE'
+                });
+                if (res.ok) {
+                    // Remove card from DOM
+                    const card = document.querySelector(`.card[data-number="${currentTask.number}"], .kanban-card[data-number="${currentTask.number}"]`);
+                    if (card) card.remove();
+                    closeModal();
+                } else {
+                    alert('Failed to delete task');
+                }
+            } catch (e) {
+                console.error('Delete failed:', e);
+                alert('Failed to delete task');
+            }
+        }
+
+        function toggleFullscreen() {
+            modalContent.classList.toggle('fullscreen');
+            btnFullscreen.textContent = modalContent.classList.contains('fullscreen') ? '⛶' : '⛶';
         }
 
         tabs.forEach(tab => {
@@ -616,6 +814,7 @@
 
         function closeModal() {
             modal.classList.remove('active');
+            modalContent.classList.remove('fullscreen');
             isEditing = false;
         }
 
@@ -630,8 +829,17 @@
         document.querySelectorAll('.card[data-body], .kanban-card[data-body]').forEach(card => {
             card.addEventListener('click', e => {
                 if (e.target.tagName === 'A') return;
-                openModal(card.dataset.title, card.dataset.body, card.dataset.plan,
-                         card.dataset.report, card.dataset.review, card.dataset.project, parseInt(card.dataset.number));
+                openModal(
+                    card.dataset.title,
+                    card.dataset.body,
+                    card.dataset.plan,
+                    card.dataset.report,
+                    card.dataset.review,
+                    card.dataset.project,
+                    parseInt(card.dataset.number),
+                    card.dataset.started || '',
+                    card.dataset.completed || ''
+                );
             });
         });
     </script>

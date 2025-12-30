@@ -328,3 +328,12 @@ def get_next_task_number(project: str) -> int:
     if not tasks:
         return 1
     return max(t.number for t in tasks) + 1
+
+
+def delete_task(project: str, task_number: int) -> bool:
+    """Delete a task file. Returns True if deleted, False if not found."""
+    task_file = find_task_file(project, task_number)
+    if task_file is None:
+        return False
+    task_file.unlink()
+    return True
