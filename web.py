@@ -60,7 +60,7 @@ async def kanban_board(request: Request, name: str):
     board = {
         "todo": [t for t in tasks if t.status == "todo"],
         "work": [t for t in tasks if t.status == "work"],
-        "done": [t for t in tasks if t.status == "done"],
+        "done": sorted([t for t in tasks if t.status == "done"], key=lambda t: t.number, reverse=True),
     }
     return templates.TemplateResponse("kanban.html", {
         "request": request,

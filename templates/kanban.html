@@ -140,7 +140,7 @@
     let startWidths = {};
 
     function saveWidths() {
-        const total = kanban.clientWidth - 20; // minus dividers
+        const total = kanban.clientWidth - 20;
         localStorage.setItem('kanban-widths', JSON.stringify({
             todo: cols.todo.offsetWidth / total,
             work: cols.work.offsetWidth / total,
@@ -159,7 +159,7 @@
     }
 
     dividers.forEach((div, i) => {
-        div.addEventListener('mousedown', (e) => {
+        div.addEventListener('pointerdown', (e) => {
             dragging = i;
             startX = e.clientX;
             startWidths = {
@@ -167,35 +167,51 @@
                 work: cols.work.offsetWidth,
                 done: cols.done.offsetWidth
             };
+            div.setPointerCapture(e.pointerId);
+            div.classList.add('dragging');
             document.body.style.cursor = 'col-resize';
+            document.body.style.userSelect = 'none';
             e.preventDefault();
         });
-    });
 
-    document.addEventListener('mousemove', (e) => {
-        if (dragging === null) return;
-        const delta = e.clientX - startX;
-        const minW = 150;
+        div.addEventListener('pointermove', (e) => {
+            if (dragging !== i) return;
+            const delta = e.clientX - startX;
+            const minW = 150;
 
-        if (dragging === 0) {
-            const newTodo = Math.max(minW, startWidths.todo + delta);
-            const newWork = Math.max(minW, startWidths.work - delta);
-            cols.todo.style.flex = `0 0 ${newTodo}px`;
-            cols.work.style.flex = `0 0 ${newWork}px`;
-        } else {
-            const newWork = Math.max(minW, startWidths.work + delta);
-            const newDone = Math.max(minW, startWidths.done - delta);
-            cols.work.style.flex = `0 0 ${newWork}px`;
-            cols.done.style.flex = `0 0 ${newDone}px`;
-        }
-    });
+            if (dragging === 0) {
+                const newTodo = Math.max(minW, startWidths.todo + delta);
+                const newWork = Math.max(minW, startWidths.work - delta);
+                cols.todo.style.flex = `0 0 ${newTodo}px`;
+                cols.work.style.flex = `0 0 ${newWork}px`;
+            } else {
+                const newWork = Math.max(minW, startWidths.work + delta);
+                const newDone = Math.max(minW, startWidths.done - delta);
+                cols.work.style.flex = `0 0 ${newWork}px`;
+                cols.done.style.flex = `0 0 ${newDone}px`;
+            }
+        });
 
-    document.addEventListener('mouseup', () => {
-        if (dragging !== null) {
-            dragging = null;
-            document.body.style.cursor = '';
-            saveWidths();
-        }
+        div.addEventListener('pointerup', (e) => {
+            if (dragging === i) {
+                div.releasePointerCapture(e.pointerId);
+                div.classList.remove('dragging');
+                dragging = null;
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+                saveWidths();
+            }
+        });
+
+        div.addEventListener('pointercancel', (e) => {
+            if (dragging === i) {
+                div.releasePointerCapture(e.pointerId);
+                div.classList.remove('dragging');
+                dragging = null;
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+            }
+        });
     });
 
     restoreWidths();
