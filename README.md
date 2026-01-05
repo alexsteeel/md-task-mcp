@@ -41,6 +41,19 @@ tm completion zsh --install
 # Add to ~/.zshrc: fpath+=~/.zfunc; autoload -Uz compinit; compinit
 ```
 
+## Web UI
+
+```bash
+tm-web
+```
+
+Open http://localhost:8080 in browser.
+
+Views:
+- `/` - Projects cloud
+- `/project/{name}` - Tasks cloud view
+- `/kanban/{name}` - Kanban board view
+
 ## Claude Code Skill
 
 ```bash
