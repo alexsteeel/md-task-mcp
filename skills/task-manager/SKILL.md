@@ -99,6 +99,27 @@ update_task(
 )
 ```
 
+### Multiline Text
+
+Use real line breaks for multiline content in `body`, `plan`, `report`, `review`:
+
+```
+update_task(
+    project="my-project",
+    number=1,
+    plan="""## Steps
+
+1. First step
+2. Second step
+
+## Notes
+
+Additional details here."""
+)
+```
+
+Markdown formatting (headers, lists, code blocks) is fully supported.
+
 ### Start Working on Task
 
 **IMPORTANT:** When starting work on a task, ALWAYS:
