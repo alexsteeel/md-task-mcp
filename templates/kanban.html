@@ -21,7 +21,7 @@
         </div>
         <div class="kanban-tasks">
             {% for t in board.todo %}
-            <div class="kanban-card status-todo" data-body="{{ t.body }}" data-plan="{{ t.plan }}" data-report="{{ t.report }}" data-review="{{ t.review }}" data-title="#{{ t.number }} {{ t.description }}" data-project="{{ project }}" data-number="{{ t.number }}" data-started="{{ t.started or '' }}" data-completed="{{ t.completed or '' }}">
+            <div class="kanban-card status-todo" data-body="{{ t.body }}" data-plan="{{ t.plan }}" data-report="{{ t.report }}" data-review="{{ t.review }}" data-title="#{{ t.number }} {{ t.description }}" data-project="{{ project }}" data-number="{{ t.number }}" data-status="todo" data-started="{{ t.started or '' }}" data-completed="{{ t.completed or '' }}">
                 <div class="kanban-card-num">#{{ t.number }}{% if t.branch %}<span class="branch-badge">{{ t.branch }}</span>{% endif %}{% if t.module %}<span class="module-badge">{{ t.module }}</span>{% endif %}</div>
                 <div class="kanban-card-title">{{ t.description }}</div>
                 <div class="section-icons">
@@ -58,7 +58,7 @@
         </div>
         <div class="kanban-tasks">
             {% for t in board.work %}
-            <div class="kanban-card status-work" data-body="{{ t.body }}" data-plan="{{ t.plan }}" data-report="{{ t.report }}" data-review="{{ t.review }}" data-title="#{{ t.number }} {{ t.description }}" data-project="{{ project }}" data-number="{{ t.number }}" data-started="{{ t.started or '' }}" data-completed="{{ t.completed or '' }}">
+            <div class="kanban-card status-work" data-body="{{ t.body }}" data-plan="{{ t.plan }}" data-report="{{ t.report }}" data-review="{{ t.review }}" data-title="#{{ t.number }} {{ t.description }}" data-project="{{ project }}" data-number="{{ t.number }}" data-status="work" data-started="{{ t.started or '' }}" data-completed="{{ t.completed or '' }}">
                 <div class="kanban-card-num">#{{ t.number }}{% if t.branch %}<span class="branch-badge">{{ t.branch }}</span>{% endif %}{% if t.module %}<span class="module-badge">{{ t.module }}</span>{% endif %}</div>
                 <div class="kanban-card-title">{{ t.description }}</div>
                 <div class="section-icons">
@@ -95,7 +95,44 @@
         </div>
         <div class="kanban-tasks">
             {% for t in board.done %}
-            <div class="kanban-card status-done" data-body="{{ t.body }}" data-plan="{{ t.plan }}" data-report="{{ t.report }}" data-review="{{ t.review }}" data-title="#{{ t.number }} {{ t.description }}" data-project="{{ project }}" data-number="{{ t.number }}" data-started="{{ t.started or '' }}" data-completed="{{ t.completed or '' }}">
+            <div class="kanban-card status-done" data-body="{{ t.body }}" data-plan="{{ t.plan }}" data-report="{{ t.report }}" data-review="{{ t.review }}" data-title="#{{ t.number }} {{ t.description }}" data-project="{{ project }}" data-number="{{ t.number }}" data-status="done" data-started="{{ t.started or '' }}" data-completed="{{ t.completed or '' }}">
+                <div class="kanban-card-num">#{{ t.number }}{% if t.branch %}<span class="branch-badge">{{ t.branch }}</span>{% endif %}{% if t.module %}<span class="module-badge">{{ t.module }}</span>{% endif %}</div>
+                <div class="kanban-card-title">{{ t.description }}</div>
+                <div class="section-icons">
+                    <span class="section-icon {{ 'has-content' if t.body else '' }}" title="Description">D</span>
+                    <span class="section-icon {{ 'has-content' if t.plan else '' }}" title="Plan">P</span>
+                    <span class="section-icon {{ 'has-content' if t.review else '' }}" title="Review">RV</span>
+                    <span class="section-icon {{ 'has-content' if t.report else '' }}" title="Report">RP</span>
+                </div>
+                {% if t.started or t.completed %}
+                <div class="kanban-card-dates">
+                    {% if t.started %}<span>S: {{ t.started }}</span>{% endif %}
+                    {% if t.completed %}<span>C: {{ t.completed }}</span>{% endif %}
+                </div>
+                {% endif %}
+                {% if t.depends_on %}
+                <div class="blocked-by">
+                    blocked:
+                    {% for d in t.depends_on %}
+                    <span class="blocked-badge">#{{ d }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="kanban-divider" id="divider-3"></div>
+
+    <div class="kanban-column col-approved" id="col-approved">
+        <div class="kanban-header">
+            <span>APPROVED</span>
+            <span class="count">{{ board.approved | length }}</span>
+        </div>
+        <div class="kanban-tasks">
+            {% for t in board.approved %}
+            <div class="kanban-card status-approved" data-body="{{ t.body }}" data-plan="{{ t.plan }}" data-report="{{ t.report }}" data-review="{{ t.review }}" data-title="#{{ t.number }} {{ t.description }}" data-project="{{ project }}" data-number="{{ t.number }}" data-status="approved" data-started="{{ t.started or '' }}" data-completed="{{ t.completed or '' }}">
                 <div class="kanban-card-num">#{{ t.number }}{% if t.branch %}<span class="branch-badge">{{ t.branch }}</span>{% endif %}{% if t.module %}<span class="module-badge">{{ t.module }}</span>{% endif %}</div>
                 <div class="kanban-card-title">{{ t.description }}</div>
                 <div class="section-icons">
@@ -129,52 +166,60 @@
     const cols = {
         todo: document.getElementById('col-todo'),
         work: document.getElementById('col-work'),
-        done: document.getElementById('col-done')
+        done: document.getElementById('col-done'),
+        approved: document.getElementById('col-approved')
     };
     const dividers = [
         document.getElementById('divider-1'),
-        document.getElementById('divider-2')
+        document.getElementById('divider-2'),
+        document.getElementById('divider-3')
     ];
+    const colNames = ['todo', 'work', 'done', 'approved'];
 
     let dragging = null;
     let startX = 0;
     let startWidths = {};
 
     function saveWidths() {
-        const total = kanban.clientWidth - 20;
-        localStorage.setItem('kanban-widths', JSON.stringify({
-            todo: cols.todo.offsetWidth / total,
-            work: cols.work.offsetWidth / total,
-            done: cols.done.offsetWidth / total
+        // Save flex-grow values based on current widths
+        localStorage.setItem('kanban-widths-7', JSON.stringify({
+            todo: cols.todo.offsetWidth,
+            work: cols.work.offsetWidth,
+            done: cols.done.offsetWidth,
+            approved: cols.approved.offsetWidth
         }));
     }
 
     function restoreWidths() {
-        const saved = localStorage.getItem('kanban-widths');
+        const saved = localStorage.getItem('kanban-widths-7');
         if (saved) {
             const w = JSON.parse(saved);
-            cols.todo.style.flex = `0 0 ${w.todo * 100}%`;
-            cols.work.style.flex = `0 0 ${w.work * 100}%`;
-            cols.done.style.flex = `0 0 ${w.done * 100}%`;
+            // Use flex-grow - browser handles gaps/dividers automatically
+            cols.todo.style.flex = `${w.todo} 1 0`;
+            cols.work.style.flex = `${w.work} 1 0`;
+            cols.done.style.flex = `${w.done} 1 0`;
+            cols.approved.style.flex = `${w.approved} 1 0`;
         }
     }
 
     function onPointerMove(e) {
         if (dragging === null) return;
         const delta = e.clientX - startX;
-        const minW = 150;
+        const minW = 120;
+        const left = colNames[dragging];
+        const right = colNames[dragging + 1];
 
-        if (dragging === 0) {
-            const newTodo = Math.max(minW, startWidths.todo + delta);
-            const newWork = Math.max(minW, startWidths.work - delta);
-            cols.todo.style.flex = `0 0 ${newTodo}px`;
-            cols.work.style.flex = `0 0 ${newWork}px`;
-        } else {
-            const newWork = Math.max(minW, startWidths.work + delta);
-            const newDone = Math.max(minW, startWidths.done - delta);
-            cols.work.style.flex = `0 0 ${newWork}px`;
-            cols.done.style.flex = `0 0 ${newDone}px`;
-        }
+        // Calculate new widths ensuring both stay above minimum
+        let newLeft = Math.max(minW, startWidths[left] + delta);
+        let newRight = Math.max(minW, startWidths[right] - delta);
+
+        // Use flex-grow based on width ratios - browser handles gaps/dividers
+        const otherCols = colNames.filter(n => n !== left && n !== right);
+        cols[left].style.flex = `${newLeft} 1 0`;
+        cols[right].style.flex = `${newRight} 1 0`;
+        otherCols.forEach(n => {
+            cols[n].style.flex = `${startWidths[n]} 1 0`;
+        });
     }
 
     function onPointerUp() {
@@ -195,7 +240,8 @@
             startWidths = {
                 todo: cols.todo.offsetWidth,
                 work: cols.work.offsetWidth,
-                done: cols.done.offsetWidth
+                done: cols.done.offsetWidth,
+                approved: cols.approved.offsetWidth
             };
             div.classList.add('dragging');
             document.body.style.cursor = 'col-resize';

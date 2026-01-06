@@ -10,7 +10,7 @@
 
 <div class="cloud">
     {% for p in projects %}
-    <a href="/project/{{ p.name }}" class="card">
+    <a href="/kanban/{{ p.name }}" class="card">
         <div class="card-title">{{ p.name }}</div>
         <div class="card-meta">{{ p.total }} task{{ 's' if p.total != 1 else '' }}</div>
         <div class="stats">

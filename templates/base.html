@@ -13,7 +13,11 @@
             --todo: #6c757d;
             --work: #ffc107;
             --done: #28a745;
+            --approved: #17a2b8;
             --accent: #0f3460;
+            /* Kanban card sizing */
+            --card-width: 168px;
+            --card-gap: 4px;
         }
 
         * {
@@ -26,8 +30,9 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             background: var(--bg);
             color: var(--text);
-            min-height: 100vh;
+            height: 100vh;
             padding: 1rem 0.5rem;
+            overflow: hidden;
         }
 
         header {
@@ -110,11 +115,10 @@
             border-radius: 12px;
             padding: 1.5rem;
             max-width: 900px;
-            max-height: 80vh;
+            height: 80vh;
             overflow-y: auto;
             width: 90%;
             min-width: 400px;
-            min-height: 300px;
             resize: both;
             position: relative;
             display: flex;
@@ -184,6 +188,35 @@
         .modal-dates span {
             margin-right: 1rem;
         }
+
+        .modal-status {
+            display: flex;
+            gap: 0.3rem;
+            margin-top: 0.3rem;
+        }
+
+        .status-btn {
+            font-size: 0.65rem;
+            padding: 0.2rem 0.5rem;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            opacity: 0.5;
+            transition: opacity 0.15s;
+        }
+
+        .status-btn:hover {
+            opacity: 0.8;
+        }
+
+        .status-btn.active {
+            opacity: 1;
+        }
+
+        .status-btn.status-todo { background: var(--todo); color: #fff; }
+        .status-btn.status-work { background: var(--work); color: #000; }
+        .status-btn.status-done { background: var(--done); color: #fff; }
+        .status-btn.status-approved { background: var(--approved); color: #fff; }
 
         .modal-header-actions {
             display: flex;
@@ -399,6 +432,7 @@
         .status-todo { background: var(--todo); }
         .status-work { background: var(--work); color: #000; }
         .status-done { background: var(--done); }
+        .status-approved { background: var(--approved); }
 
         .stats {
             display: flex;
@@ -437,67 +471,69 @@
 
         .section-icons {
             display: flex;
-            gap: 0.25rem;
-            justify-content: flex-end;
-            margin-top: auto;
-            padding-top: 0.5rem;
+            gap: 0.2rem;
+            justify-content: flex-start;
         }
 
         .branch-badge {
             display: inline-block;
             background: #2d3748;
-            color: #a0aec0;
-            padding: 0.05rem 0.25rem;
+            color: #81e6d9;
+            padding: 0.08rem 0.25rem;
             border-radius: 3px;
-            font-size: 0.5rem;
-            margin-left: 0.2rem;
+            font-size: 0.48rem;
             font-family: monospace;
         }
 
         .section-icon {
-            font-size: 0.6rem;
-            color: var(--text-muted);
-            opacity: 0.3;
+            display: none;
         }
 
         .section-icon.has-content {
-            opacity: 1;
+            display: inline-block;
+            font-size: 0.5rem;
+            padding: 0.1rem 0.2rem;
+            border-radius: 2px;
+            background: var(--accent);
             color: var(--text);
         }
 
         .module-badge {
             display: inline-block;
-            background: #4a5568;
-            color: #fff;
-            padding: 0.08rem 0.3rem;
+            background: #553c9a;
+            color: #d6bcfa;
+            padding: 0.08rem 0.25rem;
             border-radius: 3px;
-            font-size: 0.55rem;
-            margin-left: 0.25rem;
+            font-size: 0.48rem;
         }
 
         .blocked-by {
-            margin-top: 0.2rem;
-            font-size: 0.55rem;
-            color: #e53e3e;
+            font-size: 0.5rem;
+            color: #fc8181;
+            display: flex;
+            align-items: center;
+            gap: 0.15rem;
+            flex-wrap: wrap;
         }
 
         .blocked-badge {
             display: inline-block;
-            background: #e53e3e;
+            background: #c53030;
             color: #fff;
-            padding: 0.05rem 0.2rem;
+            padding: 0.05rem 0.15rem;
             border-radius: 2px;
-            margin-right: 0.1rem;
+            font-size: 0.45rem;
         }
 
         .card-dates, .kanban-card-dates {
-            margin-top: 0.2rem;
-            font-size: 0.55rem;
+            font-size: 0.5rem;
             color: var(--text-muted);
+            display: flex;
+            gap: 0.4rem;
         }
 
         .card-dates span, .kanban-card-dates span {
-            margin-right: 0.5rem;
+            opacity: 0.8;
         }
 
         /* Kanban */
@@ -505,38 +541,54 @@
             display: flex;
             gap: 0.3rem;
             height: calc(100vh - 60px);
+            overflow-x: auto;
         }
 
         .kanban-column {
             background: var(--card-bg);
             border-radius: 8px;
-            padding: 0.5rem 0.4rem;
+            padding: 0.3rem 6px;
             display: flex;
             flex-direction: column;
-            overflow-y: auto;
+            overflow: hidden;
         }
 
+        /* Column min-width = N * card-width + (N-1) * gap + 2 * padding(6px) */
+        /* flex-grow proportional to min cards: TODO=3, WORK=1, DONE=2, APPROVED=3 */
         .kanban-column.col-todo {
-            flex: 3;
+            /* min 3 cards, grows proportionally */
+            flex: 3 1 0;
+            min-width: calc(3 * var(--card-width) + 2 * var(--card-gap) + 12px);
         }
 
         .kanban-column.col-work {
-            flex: 2;
+            /* min 1 card, grows proportionally */
+            flex: 1 1 0;
+            min-width: calc(var(--card-width) + 12px);
         }
 
         .kanban-column.col-done {
-            flex: 1;
+            /* min 2 cards, grows proportionally */
+            flex: 2 1 0;
+            min-width: calc(2 * var(--card-width) + 1 * var(--card-gap) + 12px);
+        }
+
+        .kanban-column.col-approved {
+            /* min 3 cards, grows proportionally */
+            flex: 3 1 0;
+            min-width: calc(3 * var(--card-width) + 2 * var(--card-gap) + 12px);
         }
 
         .kanban-header {
             font-size: 0.8rem;
             font-weight: 600;
-            margin-bottom: 0.75rem;
+            margin-bottom: 0.5rem;
             padding-bottom: 0.5rem;
             border-bottom: 2px solid var(--accent);
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-shrink: 0;
         }
 
         .kanban-header .count {
@@ -549,23 +601,39 @@
         .kanban-tasks {
             display: flex;
             flex-wrap: wrap;
-            gap: 0.4rem;
+            gap: var(--card-gap);
             align-content: flex-start;
+            overflow-y: auto;
+            flex: 1;
+            scrollbar-width: thin;
+        }
+
+        .kanban-tasks::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .kanban-tasks::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .kanban-tasks::-webkit-scrollbar-thumb {
+            background: var(--accent);
+            border-radius: 3px;
         }
 
         .kanban-card {
             background: var(--bg);
-            border-radius: 6px;
-            padding: 0.4rem 0.5rem;
+            border-radius: 5px;
+            padding: 0.3rem 0.4rem;
             cursor: pointer;
             transition: transform 0.1s;
             border-left: 3px solid transparent;
-            width: 168px;
-            min-height: 80px;
+            width: var(--card-width);
             word-wrap: break-word;
             overflow-wrap: break-word;
             display: flex;
             flex-direction: column;
+            gap: 0.15rem;
         }
 
         .kanban-card:hover {
@@ -575,17 +643,22 @@
         .kanban-card.status-todo { border-left-color: var(--todo); }
         .kanban-card.status-work { border-left-color: var(--work); color: var(--text); }
         .kanban-card.status-done { border-left-color: var(--done); }
+        .kanban-card.status-approved { border-left-color: var(--approved); }
 
         .kanban-card-title {
-            font-size: 0.7rem;
+            font-size: 0.68rem;
             font-weight: 500;
-            line-height: 1.3;
+            line-height: 1.25;
+            color: var(--text);
         }
 
         .kanban-card-num {
-            font-size: 0.6rem;
+            font-size: 0.55rem;
             color: var(--text-muted);
-            margin-bottom: 0.15rem;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            flex-wrap: wrap;
         }
 
         .view-toggle {
@@ -620,6 +693,7 @@
             -moz-user-select: none;
             -webkit-user-select: none;
             align-self: stretch;
+            flex-shrink: 0;
         }
 
         .kanban-divider:hover {
@@ -744,6 +818,12 @@
                         <span class="modal-title" id="modal-title"></span>
                         <input type="text" class="modal-title-input" id="modal-title-input" />
                     </div>
+                    <div class="modal-status" id="modal-status">
+                        <button class="status-btn status-todo" data-status="todo" onclick="changeStatus('todo')">TODO</button>
+                        <button class="status-btn status-work" data-status="work" onclick="changeStatus('work')">WORK</button>
+                        <button class="status-btn status-done" data-status="done" onclick="changeStatus('done')">DONE</button>
+                        <button class="status-btn status-approved" data-status="approved" onclick="changeStatus('approved')">APPROVED</button>
+                    </div>
                     <div class="modal-dates" id="modal-dates"></div>
                 </div>
                 <div class="modal-header-actions">
@@ -805,11 +885,43 @@
 
         let currentData = { body: '', plan: '', report: '', review: '' };
         let currentTab = 'body';
-        let currentTask = { project: '', number: 0, description: '', started: '', completed: '' };
+        let currentTask = { project: '', number: 0, description: '', started: '', completed: '', status: 'todo' };
         let isEditing = false;
         let originalDescription = '';
 
-        function openModal(title, body, plan, report, review, project, number, started, completed) {
+        function updateStatusButtons(status) {
+            document.querySelectorAll('.status-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.status === status);
+            });
+        }
+
+        async function changeStatus(newStatus) {
+            if (newStatus === currentTask.status) return;
+
+            try {
+                const res = await fetch(`/api/task/${currentTask.project}/${currentTask.number}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: newStatus })
+                });
+                if (res.ok) {
+                    currentTask.status = newStatus;
+                    updateStatusButtons(newStatus);
+                    // Update card in DOM
+                    const card = document.querySelector(`.card[data-number="${currentTask.number}"], .kanban-card[data-number="${currentTask.number}"]`);
+                    if (card) {
+                        card.dataset.status = newStatus;
+                        card.className = card.className.replace(/status-\w+/, `status-${newStatus}`);
+                        // Reload page to move card to correct column
+                        location.reload();
+                    }
+                }
+            } catch (e) {
+                console.error('Status change failed:', e);
+            }
+        }
+
+        function openModal(title, body, plan, report, review, project, number, started, completed, status) {
             const match = title.match(/^#(\d+)\s+(.*)$/);
             const description = match ? match[2] : title;
             originalDescription = description;
@@ -824,11 +936,12 @@
             modalDates.innerHTML = datesHtml;
 
             currentData = { body: body || '', plan: plan || '', report: report || '', review: review || '' };
-            currentTask = { project, number, description, started: started || '', completed: completed || '' };
+            currentTask = { project, number, description, started: started || '', completed: completed || '', status: status || 'todo' };
             currentTab = 'body';
             isEditing = false;
             showTab('body');
             setEditMode(false);
+            updateStatusButtons(currentTask.status);
             modal.classList.add('active');
         }
 
@@ -993,7 +1106,8 @@
                     card.dataset.project,
                     parseInt(card.dataset.number),
                     card.dataset.started || '',
-                    card.dataset.completed || ''
+                    card.dataset.completed || '',
+                    card.dataset.status || 'todo'
                 );
             });
         });
