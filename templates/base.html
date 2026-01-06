@@ -560,7 +560,7 @@
             cursor: pointer;
             transition: transform 0.1s;
             border-left: 3px solid transparent;
-            width: 210px;
+            width: 168px;
             min-height: 80px;
             word-wrap: break-word;
             overflow-wrap: break-word;
@@ -619,6 +619,7 @@
             user-select: none;
             -moz-user-select: none;
             -webkit-user-select: none;
+            align-self: stretch;
         }
 
         .kanban-divider:hover {
@@ -627,6 +628,108 @@
 
         .kanban-divider.dragging {
             opacity: 0.8;
+        }
+
+        /* Create button */
+        .btn-create {
+            background: var(--done);
+            color: #fff;
+            border: none;
+            font-size: 1.4rem;
+            font-weight: 300;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+            padding: 0;
+            padding-bottom: 2px;
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+
+        .btn-create:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
+        }
+
+        /* Create modal */
+        .create-modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 200;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .create-modal-overlay.active {
+            display: flex;
+        }
+
+        .create-modal {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 1.5rem;
+            max-width: 500px;
+            width: 90%;
+        }
+
+        .create-modal h2 {
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+        }
+
+        .create-form {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+        }
+
+        .form-group label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .form-group input,
+        .form-group textarea {
+            background: var(--bg);
+            color: var(--text);
+            border: 1px solid var(--accent);
+            border-radius: 6px;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.9rem;
+        }
+
+        .form-group textarea {
+            min-height: 80px;
+            font-family: monospace;
+            resize: vertical;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--done);
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: flex-end;
+            margin-top: 0.5rem;
         }
     </style>
 </head>
@@ -660,6 +763,27 @@
             </div>
             <div class="modal-body" id="modal-body"></div>
             <textarea class="modal-editor" id="modal-editor"></textarea>
+        </div>
+    </div>
+
+    <!-- Create Modal -->
+    <div class="create-modal-overlay" id="create-modal">
+        <div class="create-modal">
+            <h2 id="create-modal-title">Create Task</h2>
+            <form class="create-form" id="create-form" onsubmit="submitCreate(event)">
+                <div class="form-group">
+                    <label for="create-name">Name *</label>
+                    <input type="text" id="create-name" required placeholder="Enter name..." />
+                </div>
+                <div class="form-group task-only">
+                    <label for="create-body">Description</label>
+                    <textarea id="create-body" placeholder="Optional description..."></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-cancel" onclick="closeCreateModal()">Cancel</button>
+                    <button type="submit" class="btn btn-save">Create</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -872,6 +996,84 @@
                     card.dataset.completed || ''
                 );
             });
+        });
+
+        // Create modal functionality
+        const createModal = document.getElementById('create-modal');
+        const createModalTitle = document.getElementById('create-modal-title');
+        const createForm = document.getElementById('create-form');
+        const createNameInput = document.getElementById('create-name');
+        const createBodyInput = document.getElementById('create-body');
+        let createMode = 'task'; // 'task' or 'project'
+        let createProject = '';
+
+        function openCreateModal(mode, project = '') {
+            createMode = mode;
+            createProject = project;
+
+            if (mode === 'project') {
+                createModalTitle.textContent = 'Create Project';
+                document.querySelectorAll('.task-only').forEach(el => el.style.display = 'none');
+            } else {
+                createModalTitle.textContent = 'Create Task';
+                document.querySelectorAll('.task-only').forEach(el => el.style.display = 'flex');
+            }
+
+            createNameInput.value = '';
+            createBodyInput.value = '';
+            createModal.classList.add('active');
+            createNameInput.focus();
+        }
+
+        function closeCreateModal() {
+            createModal.classList.remove('active');
+        }
+
+        async function submitCreate(e) {
+            e.preventDefault();
+            const name = createNameInput.value.trim();
+            if (!name) return;
+
+            try {
+                let res;
+                if (createMode === 'project') {
+                    res = await fetch('/api/project', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name })
+                    });
+                } else {
+                    res = await fetch(`/api/task/${createProject}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            description: name,
+                            body: createBodyInput.value
+                        })
+                    });
+                }
+
+                if (res.ok) {
+                    closeCreateModal();
+                    location.reload();
+                } else {
+                    const err = await res.json();
+                    alert(err.detail || 'Failed to create');
+                }
+            } catch (e) {
+                console.error('Create failed:', e);
+                alert('Failed to create');
+            }
+        }
+
+        createModal.addEventListener('click', e => {
+            if (e.target === createModal) closeCreateModal();
+        });
+
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape' && createModal.classList.contains('active')) {
+                closeCreateModal();
+            }
         });
     </script>
 </body>

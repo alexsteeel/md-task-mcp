@@ -9,7 +9,10 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 import uvicorn
 
-from core import list_projects, list_tasks, read_task, write_task, delete_task
+from core import (
+    list_projects, list_tasks, read_task, write_task, delete_task,
+    get_project_dir, get_next_task_number, Task
+)
 
 app = FastAPI(title="Task Cloud")
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
@@ -21,6 +24,16 @@ class TaskUpdate(BaseModel):
     report: Optional[str] = None
     review: Optional[str] = None
     description: Optional[str] = None
+
+
+class TaskCreate(BaseModel):
+    description: str
+    body: Optional[str] = ""
+    plan: Optional[str] = ""
+
+
+class ProjectCreate(BaseModel):
+    name: str
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -97,6 +110,38 @@ async def delete_task_endpoint(project: str, number: int):
     if delete_task(project, number):
         return {"ok": True}
     raise HTTPException(status_code=404, detail="Task not found")
+
+
+@app.post("/api/project")
+async def create_project_endpoint(data: ProjectCreate):
+    """Create a new project."""
+    name = data.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Project name is required")
+    # Create project directory
+    get_project_dir(name, create=True)
+    return {"ok": True, "name": name}
+
+
+@app.post("/api/task/{project}")
+async def create_task_endpoint(project: str, data: TaskCreate):
+    """Create a new task."""
+    if not data.description.strip():
+        raise HTTPException(status_code=400, detail="Task description is required")
+
+    # Ensure project exists
+    get_project_dir(project, create=True)
+
+    task_number = get_next_task_number(project)
+    task = Task(
+        number=task_number,
+        description=data.description.strip(),
+        body=data.body or "",
+        plan=data.plan or "",
+    )
+
+    write_task(project, task)
+    return {"ok": True, "number": task_number, "task": task.to_dict()}
 
 
 def main():

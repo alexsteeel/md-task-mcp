@@ -6,6 +6,7 @@
 <header>
     <a href="/" class="back-link">&larr; Back to Projects</a>
     <h1>{{ project }}</h1>
+    <button class="btn-create" onclick="openCreateModal('task', '{{ project }}')" title="Create Task">+</button>
     <div class="view-toggle">
         <a href="/project/{{ project }}">Cloud</a>
         <a href="/kanban/{{ project }}" class="active">Kanban</a>
@@ -158,6 +159,35 @@
         }
     }
 
+    function onPointerMove(e) {
+        if (dragging === null) return;
+        const delta = e.clientX - startX;
+        const minW = 150;
+
+        if (dragging === 0) {
+            const newTodo = Math.max(minW, startWidths.todo + delta);
+            const newWork = Math.max(minW, startWidths.work - delta);
+            cols.todo.style.flex = `0 0 ${newTodo}px`;
+            cols.work.style.flex = `0 0 ${newWork}px`;
+        } else {
+            const newWork = Math.max(minW, startWidths.work + delta);
+            const newDone = Math.max(minW, startWidths.done - delta);
+            cols.work.style.flex = `0 0 ${newWork}px`;
+            cols.done.style.flex = `0 0 ${newDone}px`;
+        }
+    }
+
+    function onPointerUp() {
+        if (dragging === null) return;
+        dividers[dragging].classList.remove('dragging');
+        dragging = null;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        document.removeEventListener('pointermove', onPointerMove);
+        document.removeEventListener('pointerup', onPointerUp);
+        saveWidths();
+    }
+
     dividers.forEach((div, i) => {
         div.addEventListener('pointerdown', (e) => {
             dragging = i;
@@ -167,50 +197,12 @@
                 work: cols.work.offsetWidth,
                 done: cols.done.offsetWidth
             };
-            div.setPointerCapture(e.pointerId);
             div.classList.add('dragging');
             document.body.style.cursor = 'col-resize';
             document.body.style.userSelect = 'none';
+            document.addEventListener('pointermove', onPointerMove);
+            document.addEventListener('pointerup', onPointerUp);
             e.preventDefault();
-        });
-
-        div.addEventListener('pointermove', (e) => {
-            if (dragging !== i) return;
-            const delta = e.clientX - startX;
-            const minW = 150;
-
-            if (dragging === 0) {
-                const newTodo = Math.max(minW, startWidths.todo + delta);
-                const newWork = Math.max(minW, startWidths.work - delta);
-                cols.todo.style.flex = `0 0 ${newTodo}px`;
-                cols.work.style.flex = `0 0 ${newWork}px`;
-            } else {
-                const newWork = Math.max(minW, startWidths.work + delta);
-                const newDone = Math.max(minW, startWidths.done - delta);
-                cols.work.style.flex = `0 0 ${newWork}px`;
-                cols.done.style.flex = `0 0 ${newDone}px`;
-            }
-        });
-
-        div.addEventListener('pointerup', (e) => {
-            if (dragging === i) {
-                div.releasePointerCapture(e.pointerId);
-                div.classList.remove('dragging');
-                dragging = null;
-                document.body.style.cursor = '';
-                document.body.style.userSelect = '';
-                saveWidths();
-            }
-        });
-
-        div.addEventListener('pointercancel', (e) => {
-            if (dragging === i) {
-                div.releasePointerCapture(e.pointerId);
-                div.classList.remove('dragging');
-                dragging = null;
-                document.body.style.cursor = '';
-                document.body.style.userSelect = '';
-            }
         });
     });
 

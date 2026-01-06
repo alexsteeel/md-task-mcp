@@ -6,6 +6,7 @@
 <header>
     <a href="/" class="back-link">&larr; Back to Projects</a>
     <h1>{{ project }}</h1>
+    <button class="btn-create" onclick="openCreateModal('task', '{{ project }}')" title="Create Task">+</button>
     <div class="view-toggle">
         <a href="/project/{{ project }}" class="active">Cloud</a>
         <a href="/kanban/{{ project }}">Kanban</a>
