@@ -11,7 +11,8 @@ import uvicorn
 
 from core import (
     list_projects, list_tasks, read_task, write_task, delete_task,
-    get_project_dir, get_next_task_number, Task, VALID_STATUSES
+    get_project_dir, get_next_task_number, get_project_description,
+    set_project_description, Task, VALID_STATUSES
 )
 
 app = FastAPI(title="Task Cloud")
@@ -35,6 +36,11 @@ class TaskCreate(BaseModel):
 
 class ProjectCreate(BaseModel):
     name: str
+    description: Optional[str] = ""
+
+
+class ProjectUpdate(BaseModel):
+    description: Optional[str] = None
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -45,6 +51,7 @@ async def projects_cloud(request: Request):
         tasks = list_tasks(name)
         projects.append({
             "name": name,
+            "description": get_project_description(name),
             "total": len(tasks),
             "work": sum(1 for t in tasks if t.status == "work"),
             "todo": sum(1 for t in tasks if t.status == "todo"),
@@ -125,7 +132,17 @@ async def create_project_endpoint(data: ProjectCreate):
         raise HTTPException(status_code=400, detail="Project name is required")
     # Create project directory
     get_project_dir(name, create=True)
+    if data.description:
+        set_project_description(name, data.description)
     return {"ok": True, "name": name}
+
+
+@app.post("/api/project/{name}")
+async def update_project_endpoint(name: str, data: ProjectUpdate):
+    """Update project description."""
+    if data.description is not None:
+        set_project_description(name, data.description)
+    return {"ok": True, "description": get_project_description(name)}
 
 
 @app.post("/api/task/{project}")

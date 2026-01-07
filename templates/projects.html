@@ -12,6 +12,9 @@
     {% for p in projects %}
     <a href="/kanban/{{ p.name }}" class="card">
         <div class="card-title">{{ p.name }}</div>
+        {% if p.description %}
+        <div class="card-description">{{ p.description }}</div>
+        {% endif %}
         <div class="card-meta">{{ p.total }} task{{ 's' if p.total != 1 else '' }}</div>
         <div class="stats">
             {% if p.work > 0 %}

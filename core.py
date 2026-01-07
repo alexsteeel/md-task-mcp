@@ -271,6 +271,21 @@ def list_projects() -> list[str]:
     ])
 
 
+def get_project_description(project: str) -> str:
+    """Get project description from README.md."""
+    readme_path = get_project_dir(project) / "README.md"
+    if readme_path.exists():
+        return readme_path.read_text(encoding="utf-8").strip()
+    return ""
+
+
+def set_project_description(project: str, description: str) -> None:
+    """Set project description in README.md."""
+    project_dir = get_project_dir(project, create=True)
+    readme_path = project_dir / "README.md"
+    readme_path.write_text(description.strip(), encoding="utf-8")
+
+
 def task_to_string(task: Task) -> str:
     """Convert a Task object to markdown string."""
     depends_str = ", ".join(map(str, task.depends_on)) if task.depends_on else ""
