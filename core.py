@@ -34,7 +34,7 @@ from pathlib import Path
 
 # Constants
 BASE_DIR = Path.home() / ".md-task-mcp"
-VALID_STATUSES = {"todo", "work", "done", "approved"}
+VALID_STATUSES = {"todo", "work", "done", "approved", "hold"}
 
 
 @dataclass
@@ -52,6 +52,7 @@ class Task:
     plan: str = ""  # Plan section content
     report: str = ""  # Report section content
     review: str = ""  # Review section content
+    blocks: str = ""  # Blocks section content (what's blocking this task)
     depends_on: list[int] = field(default_factory=list)  # Task dependencies
     file_path: Path | None = field(default=None, repr=False)
 
@@ -69,6 +70,7 @@ class Task:
             "plan": self.plan.strip(),
             "report": self.report.strip(),
             "review": self.review.strip(),
+            "blocks": self.blocks.strip(),
             "depends_on": self.depends_on,
         }
 
@@ -153,6 +155,8 @@ def parse_task_file(path: Path) -> Task | None:
                 task.report = content
             elif current_section == "review":
                 task.review = content
+            elif current_section == "blocks":
+                task.blocks = content
 
     for line in lines:
         # Check for task header
@@ -188,6 +192,11 @@ def parse_task_file(path: Path) -> Task | None:
         elif line_lower == "## review":
             save_section()
             current_section = "review"
+            section_content = []
+            continue
+        elif line_lower == "## blocks":
+            save_section()
+            current_section = "blocks"
             section_content = []
             continue
 
@@ -314,6 +323,10 @@ def task_to_string(task: Task) -> str:
     lines.append("## Review")
     if task.review.strip():
         lines.append(task.review.strip())
+    lines.append("")
+    lines.append("## Blocks")
+    if task.blocks.strip():
+        lines.append(task.blocks.strip())
     lines.append("")
     return "\n".join(lines)
 

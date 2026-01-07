@@ -24,6 +24,7 @@ class TaskUpdate(BaseModel):
     plan: Optional[str] = None
     report: Optional[str] = None
     review: Optional[str] = None
+    blocks: Optional[str] = None
     description: Optional[str] = None
     status: Optional[str] = None
 
@@ -80,6 +81,7 @@ async def kanban_board(request: Request, name: str):
     """Display tasks as a kanban board."""
     tasks = list_tasks(name)
     board = {
+        "hold": [t for t in tasks if t.status == "hold"],
         "todo": [t for t in tasks if t.status == "todo"],
         "work": [t for t in tasks if t.status == "work"],
         "done": sorted([t for t in tasks if t.status == "done"], key=lambda t: (t.completed or '', t.number), reverse=True),
@@ -107,6 +109,8 @@ async def update_task_endpoint(project: str, number: int, data: TaskUpdate):
         task.report = data.report
     if data.review is not None:
         task.review = data.review
+    if data.blocks is not None:
+        task.blocks = data.blocks
     if data.description is not None:
         task.description = data.description
     if data.status is not None and data.status in VALID_STATUSES:

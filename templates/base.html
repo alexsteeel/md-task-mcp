@@ -14,6 +14,7 @@
             --work: #ffc107;
             --done: #28a745;
             --approved: #17a2b8;
+            --hold: #e53e3e;
             --accent: #0f3460;
             /* Kanban card sizing */
             --card-width: 134px;
@@ -440,6 +441,7 @@
         .status-work { background: var(--work); color: #000; }
         .status-done { background: var(--done); }
         .status-approved { background: var(--approved); }
+        .status-hold { background: var(--hold); }
 
         .stats {
             display: flex;
@@ -561,7 +563,13 @@
         }
 
         /* Column min-width = N * card-width + (N-1) * gap + 2 * padding(6px) */
-        /* flex-grow proportional to min cards: TODO=3, WORK=1, DONE=2, APPROVED=3 */
+        /* flex-grow proportional to min cards: HOLD=1, TODO=3, WORK=1, DONE=2, APPROVED=3 */
+        .kanban-column.col-hold {
+            /* min 1 card, grows proportionally */
+            flex: 1 1 0;
+            min-width: calc(var(--card-width) + 12px);
+        }
+
         .kanban-column.col-todo {
             /* min 3 cards, grows proportionally */
             flex: 3 1 0;
@@ -647,6 +655,7 @@
             transform: translateY(-2px);
         }
 
+        .kanban-card.status-hold { border-left-color: var(--hold); }
         .kanban-card.status-todo { border-left-color: var(--todo); }
         .kanban-card.status-work { border-left-color: var(--work); color: var(--text); }
         .kanban-card.status-done { border-left-color: var(--done); }
@@ -827,6 +836,7 @@
                         <input type="text" class="modal-title-input" id="modal-title-input" />
                     </div>
                     <div class="modal-status" id="modal-status">
+                        <button class="status-btn status-hold" data-status="hold" onclick="changeStatus('hold')">HOLD</button>
                         <button class="status-btn status-todo" data-status="todo" onclick="changeStatus('todo')">TODO</button>
                         <button class="status-btn status-work" data-status="work" onclick="changeStatus('work')">WORK</button>
                         <button class="status-btn status-done" data-status="done" onclick="changeStatus('done')">DONE</button>
@@ -850,6 +860,7 @@
                 <button class="modal-tab" data-tab="plan">Plan</button>
                 <button class="modal-tab" data-tab="review">Review</button>
                 <button class="modal-tab" data-tab="report">Report</button>
+                <button class="modal-tab" data-tab="blocks">Blocks</button>
             </div>
             <div class="modal-body" id="modal-body"></div>
             <textarea class="modal-editor" id="modal-editor"></textarea>
@@ -894,7 +905,7 @@
         const btnFullscreen = document.getElementById('btn-fullscreen');
         const tabs = document.querySelectorAll('.modal-tab');
 
-        let currentData = { body: '', plan: '', report: '', review: '' };
+        let currentData = { body: '', plan: '', report: '', review: '', blocks: '' };
         let currentTab = 'body';
         let currentTask = { project: '', number: 0, description: '', started: '', completed: '', status: 'todo', module: '' };
         let isEditing = false;
@@ -934,7 +945,7 @@
             }
         }
 
-        function openModal(title, body, plan, report, review, project, number, started, completed, status, module) {
+        function openModal(title, body, plan, report, review, blocks, project, number, started, completed, status, module) {
             const match = title.match(/^#(\d+)\s+(.*)$/);
             const description = match ? match[2] : title;
             originalDescription = description;
@@ -956,7 +967,7 @@
             if (completed) datesHtml += `<span>Completed: ${completed}</span>`;
             modalDates.innerHTML = datesHtml;
 
-            currentData = { body: body || '', plan: plan || '', report: report || '', review: review || '' };
+            currentData = { body: body || '', plan: plan || '', report: report || '', review: review || '', blocks: blocks || '' };
             currentTask = { project, number, description, started: started || '', completed: completed || '', status: status || 'todo', module: module || '' };
             currentTab = 'body';
             isEditing = false;
@@ -972,7 +983,7 @@
             if (isEditing) {
                 modalEditor.value = currentData[tab];
             } else {
-                const labels = { body: 'description', plan: 'plan', report: 'report', review: 'review' };
+                const labels = { body: 'description', plan: 'plan', report: 'report', review: 'review', blocks: 'blocks' };
                 const content = currentData[tab] || `_No ${labels[tab]}_`;
                 modalBody.innerHTML = marked.parse(content);
             }
@@ -1137,6 +1148,7 @@
                 card.dataset.plan,
                 card.dataset.report,
                 card.dataset.review,
+                card.dataset.blocks || '',
                 card.dataset.project,
                 parseInt(card.dataset.number),
                 card.dataset.started || '',

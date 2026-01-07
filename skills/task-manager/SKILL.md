@@ -140,6 +140,7 @@ This ensures the task is linked to the correct git branch for tracking.
 
 ## Status Values
 
+- `hold` - Blocked/on hold
 - `todo` - Not started
 - `work` - In progress
 - `done` - Completed

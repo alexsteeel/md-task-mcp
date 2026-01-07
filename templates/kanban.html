@@ -14,14 +14,14 @@
 </header>
 
 <div class="kanban">
-    <div class="kanban-column col-todo" id="col-todo">
+    <div class="kanban-column col-hold" id="col-hold">
         <div class="kanban-header">
-            <span>TODO</span>
-            <span class="count">{{ board.todo | length }}</span>
+            <span>HOLD</span>
+            <span class="count">{{ board.hold | length }}</span>
         </div>
         <div class="kanban-tasks">
-            {% for t in board.todo %}
-            <div class="kanban-card status-todo" data-body="{{ t.body }}" data-plan="{{ t.plan }}" data-report="{{ t.report }}" data-review="{{ t.review }}" data-title="#{{ t.number }} {{ t.description }}" data-project="{{ project }}" data-number="{{ t.number }}" data-status="todo" data-started="{{ t.started or '' }}" data-completed="{{ t.completed or '' }}" data-module="{{ t.module or '' }}">
+            {% for t in board.hold %}
+            <div class="kanban-card status-hold" data-body="{{ t.body }}" data-plan="{{ t.plan }}" data-report="{{ t.report }}" data-review="{{ t.review }}" data-blocks="{{ t.blocks }}" data-title="#{{ t.number }} {{ t.description }}" data-project="{{ project }}" data-number="{{ t.number }}" data-status="hold" data-started="{{ t.started or '' }}" data-completed="{{ t.completed or '' }}" data-module="{{ t.module or '' }}">
                 <div class="kanban-card-num">#{{ t.number }}{% if t.branch %}<span class="branch-badge">{{ t.branch }}</span>{% endif %}{% if t.module %}<span class="module-badge">{{ t.module }}</span>{% endif %}</div>
                 <div class="kanban-card-title">{{ t.description }}</div>
                 <div class="section-icons">
@@ -29,6 +29,45 @@
                     <span class="section-icon {{ 'has-content' if t.plan else '' }}" title="Plan">P</span>
                     <span class="section-icon {{ 'has-content' if t.review else '' }}" title="Review">RV</span>
                     <span class="section-icon {{ 'has-content' if t.report else '' }}" title="Report">RP</span>
+                    <span class="section-icon {{ 'has-content' if t.blocks else '' }}" title="Blocks">B</span>
+                </div>
+                {% if t.started or t.completed %}
+                <div class="kanban-card-dates">
+                    {% if t.started %}<span>S: {{ t.started }}</span>{% endif %}
+                    {% if t.completed %}<span>C: {{ t.completed }}</span>{% endif %}
+                </div>
+                {% endif %}
+                {% if t.depends_on %}
+                <div class="blocked-by">
+                    blocked:
+                    {% for d in t.depends_on %}
+                    <span class="blocked-badge">#{{ d }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="kanban-divider" id="divider-0"></div>
+
+    <div class="kanban-column col-todo" id="col-todo">
+        <div class="kanban-header">
+            <span>TODO</span>
+            <span class="count">{{ board.todo | length }}</span>
+        </div>
+        <div class="kanban-tasks">
+            {% for t in board.todo %}
+            <div class="kanban-card status-todo" data-body="{{ t.body }}" data-plan="{{ t.plan }}" data-report="{{ t.report }}" data-review="{{ t.review }}" data-blocks="{{ t.blocks }}" data-title="#{{ t.number }} {{ t.description }}" data-project="{{ project }}" data-number="{{ t.number }}" data-status="todo" data-started="{{ t.started or '' }}" data-completed="{{ t.completed or '' }}" data-module="{{ t.module or '' }}">
+                <div class="kanban-card-num">#{{ t.number }}{% if t.branch %}<span class="branch-badge">{{ t.branch }}</span>{% endif %}{% if t.module %}<span class="module-badge">{{ t.module }}</span>{% endif %}</div>
+                <div class="kanban-card-title">{{ t.description }}</div>
+                <div class="section-icons">
+                    <span class="section-icon {{ 'has-content' if t.body else '' }}" title="Description">D</span>
+                    <span class="section-icon {{ 'has-content' if t.plan else '' }}" title="Plan">P</span>
+                    <span class="section-icon {{ 'has-content' if t.review else '' }}" title="Review">RV</span>
+                    <span class="section-icon {{ 'has-content' if t.report else '' }}" title="Report">RP</span>
+                    <span class="section-icon {{ 'has-content' if t.blocks else '' }}" title="Blocks">B</span>
                 </div>
                 {% if t.started or t.completed %}
                 <div class="kanban-card-dates">
@@ -58,7 +97,7 @@
         </div>
         <div class="kanban-tasks">
             {% for t in board.work %}
-            <div class="kanban-card status-work" data-body="{{ t.body }}" data-plan="{{ t.plan }}" data-report="{{ t.report }}" data-review="{{ t.review }}" data-title="#{{ t.number }} {{ t.description }}" data-project="{{ project }}" data-number="{{ t.number }}" data-status="work" data-started="{{ t.started or '' }}" data-completed="{{ t.completed or '' }}" data-module="{{ t.module or '' }}">
+            <div class="kanban-card status-work" data-body="{{ t.body }}" data-plan="{{ t.plan }}" data-report="{{ t.report }}" data-review="{{ t.review }}" data-blocks="{{ t.blocks }}" data-title="#{{ t.number }} {{ t.description }}" data-project="{{ project }}" data-number="{{ t.number }}" data-status="work" data-started="{{ t.started or '' }}" data-completed="{{ t.completed or '' }}" data-module="{{ t.module or '' }}">
                 <div class="kanban-card-num">#{{ t.number }}{% if t.branch %}<span class="branch-badge">{{ t.branch }}</span>{% endif %}{% if t.module %}<span class="module-badge">{{ t.module }}</span>{% endif %}</div>
                 <div class="kanban-card-title">{{ t.description }}</div>
                 <div class="section-icons">
@@ -66,6 +105,7 @@
                     <span class="section-icon {{ 'has-content' if t.plan else '' }}" title="Plan">P</span>
                     <span class="section-icon {{ 'has-content' if t.review else '' }}" title="Review">RV</span>
                     <span class="section-icon {{ 'has-content' if t.report else '' }}" title="Report">RP</span>
+                    <span class="section-icon {{ 'has-content' if t.blocks else '' }}" title="Blocks">B</span>
                 </div>
                 {% if t.started or t.completed %}
                 <div class="kanban-card-dates">
@@ -95,7 +135,7 @@
         </div>
         <div class="kanban-tasks">
             {% for t in board.done %}
-            <div class="kanban-card status-done" data-body="{{ t.body }}" data-plan="{{ t.plan }}" data-report="{{ t.report }}" data-review="{{ t.review }}" data-title="#{{ t.number }} {{ t.description }}" data-project="{{ project }}" data-number="{{ t.number }}" data-status="done" data-started="{{ t.started or '' }}" data-completed="{{ t.completed or '' }}" data-module="{{ t.module or '' }}">
+            <div class="kanban-card status-done" data-body="{{ t.body }}" data-plan="{{ t.plan }}" data-report="{{ t.report }}" data-review="{{ t.review }}" data-blocks="{{ t.blocks }}" data-title="#{{ t.number }} {{ t.description }}" data-project="{{ project }}" data-number="{{ t.number }}" data-status="done" data-started="{{ t.started or '' }}" data-completed="{{ t.completed or '' }}" data-module="{{ t.module or '' }}">
                 <div class="kanban-card-num">#{{ t.number }}{% if t.branch %}<span class="branch-badge">{{ t.branch }}</span>{% endif %}{% if t.module %}<span class="module-badge">{{ t.module }}</span>{% endif %}</div>
                 <div class="kanban-card-title">{{ t.description }}</div>
                 <div class="section-icons">
@@ -103,6 +143,7 @@
                     <span class="section-icon {{ 'has-content' if t.plan else '' }}" title="Plan">P</span>
                     <span class="section-icon {{ 'has-content' if t.review else '' }}" title="Review">RV</span>
                     <span class="section-icon {{ 'has-content' if t.report else '' }}" title="Report">RP</span>
+                    <span class="section-icon {{ 'has-content' if t.blocks else '' }}" title="Blocks">B</span>
                 </div>
                 {% if t.started or t.completed %}
                 <div class="kanban-card-dates">
@@ -132,7 +173,7 @@
         </div>
         <div class="kanban-tasks">
             {% for t in board.approved %}
-            <div class="kanban-card status-approved" data-body="{{ t.body }}" data-plan="{{ t.plan }}" data-report="{{ t.report }}" data-review="{{ t.review }}" data-title="#{{ t.number }} {{ t.description }}" data-project="{{ project }}" data-number="{{ t.number }}" data-status="approved" data-started="{{ t.started or '' }}" data-completed="{{ t.completed or '' }}" data-module="{{ t.module or '' }}">
+            <div class="kanban-card status-approved" data-body="{{ t.body }}" data-plan="{{ t.plan }}" data-report="{{ t.report }}" data-review="{{ t.review }}" data-blocks="{{ t.blocks }}" data-title="#{{ t.number }} {{ t.description }}" data-project="{{ project }}" data-number="{{ t.number }}" data-status="approved" data-started="{{ t.started or '' }}" data-completed="{{ t.completed or '' }}" data-module="{{ t.module or '' }}">
                 <div class="kanban-card-num">#{{ t.number }}{% if t.branch %}<span class="branch-badge">{{ t.branch }}</span>{% endif %}{% if t.module %}<span class="module-badge">{{ t.module }}</span>{% endif %}</div>
                 <div class="kanban-card-title">{{ t.description }}</div>
                 <div class="section-icons">
@@ -140,6 +181,7 @@
                     <span class="section-icon {{ 'has-content' if t.plan else '' }}" title="Plan">P</span>
                     <span class="section-icon {{ 'has-content' if t.review else '' }}" title="Review">RV</span>
                     <span class="section-icon {{ 'has-content' if t.report else '' }}" title="Report">RP</span>
+                    <span class="section-icon {{ 'has-content' if t.blocks else '' }}" title="Blocks">B</span>
                 </div>
                 {% if t.started or t.completed %}
                 <div class="kanban-card-dates">
@@ -164,17 +206,19 @@
 <script>
     const kanban = document.querySelector('.kanban');
     const cols = {
+        hold: document.getElementById('col-hold'),
         todo: document.getElementById('col-todo'),
         work: document.getElementById('col-work'),
         done: document.getElementById('col-done'),
         approved: document.getElementById('col-approved')
     };
     const dividers = [
+        document.getElementById('divider-0'),
         document.getElementById('divider-1'),
         document.getElementById('divider-2'),
         document.getElementById('divider-3')
     ];
-    const colNames = ['todo', 'work', 'done', 'approved'];
+    const colNames = ['hold', 'todo', 'work', 'done', 'approved'];
 
     let dragging = null;
     let startX = 0;
@@ -182,7 +226,8 @@
 
     function saveWidths() {
         // Save flex-grow values based on current widths
-        localStorage.setItem('kanban-widths-7', JSON.stringify({
+        localStorage.setItem('kanban-widths-8', JSON.stringify({
+            hold: cols.hold.offsetWidth,
             todo: cols.todo.offsetWidth,
             work: cols.work.offsetWidth,
             done: cols.done.offsetWidth,
@@ -191,10 +236,11 @@
     }
 
     function restoreWidths() {
-        const saved = localStorage.getItem('kanban-widths-7');
+        const saved = localStorage.getItem('kanban-widths-8');
         if (saved) {
             const w = JSON.parse(saved);
             // Use flex-grow - browser handles gaps/dividers automatically
+            cols.hold.style.flex = `${w.hold} 1 0`;
             cols.todo.style.flex = `${w.todo} 1 0`;
             cols.work.style.flex = `${w.work} 1 0`;
             cols.done.style.flex = `${w.done} 1 0`;
@@ -238,6 +284,7 @@
             dragging = i;
             startX = e.clientX;
             startWidths = {
+                hold: cols.hold.offsetWidth,
                 todo: cols.todo.offsetWidth,
                 work: cols.work.offsetWidth,
                 done: cols.done.offsetWidth,
