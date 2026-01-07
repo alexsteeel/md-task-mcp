@@ -14,14 +14,14 @@
 </header>
 
 <div class="kanban">
-    <div class="kanban-column col-hold" id="col-hold">
+    <div class="kanban-column col-todo" id="col-todo">
         <div class="kanban-header">
-            <span>HOLD</span>
-            <span class="count">{{ board.hold | length }}</span>
+            <span>TODO</span>
+            <span class="count">{{ board.todo | length }}</span>
         </div>
         <div class="kanban-tasks">
-            {% for t in board.hold %}
-            <div class="kanban-card status-hold" data-body="{{ t.body }}" data-plan="{{ t.plan }}" data-report="{{ t.report }}" data-review="{{ t.review }}" data-blocks="{{ t.blocks }}" data-title="#{{ t.number }} {{ t.description }}" data-project="{{ project }}" data-number="{{ t.number }}" data-status="hold" data-started="{{ t.started or '' }}" data-completed="{{ t.completed or '' }}" data-module="{{ t.module or '' }}">
+            {% for t in board.todo %}
+            <div class="kanban-card status-todo" data-body="{{ t.body }}" data-plan="{{ t.plan }}" data-report="{{ t.report }}" data-review="{{ t.review }}" data-blocks="{{ t.blocks }}" data-title="#{{ t.number }} {{ t.description }}" data-project="{{ project }}" data-number="{{ t.number }}" data-status="todo" data-started="{{ t.started or '' }}" data-completed="{{ t.completed or '' }}" data-module="{{ t.module or '' }}">
                 <div class="kanban-card-num">#{{ t.number }}{% if t.branch %}<span class="branch-badge">{{ t.branch }}</span>{% endif %}{% if t.module %}<span class="module-badge">{{ t.module }}</span>{% endif %}</div>
                 <div class="kanban-card-title">{{ t.description }}</div>
                 <div class="section-icons">
@@ -52,14 +52,14 @@
 
     <div class="kanban-divider" id="divider-0"></div>
 
-    <div class="kanban-column col-todo" id="col-todo">
+    <div class="kanban-column col-hold" id="col-hold">
         <div class="kanban-header">
-            <span>TODO</span>
-            <span class="count">{{ board.todo | length }}</span>
+            <span>HOLD</span>
+            <span class="count">{{ board.hold | length }}</span>
         </div>
         <div class="kanban-tasks">
-            {% for t in board.todo %}
-            <div class="kanban-card status-todo" data-body="{{ t.body }}" data-plan="{{ t.plan }}" data-report="{{ t.report }}" data-review="{{ t.review }}" data-blocks="{{ t.blocks }}" data-title="#{{ t.number }} {{ t.description }}" data-project="{{ project }}" data-number="{{ t.number }}" data-status="todo" data-started="{{ t.started or '' }}" data-completed="{{ t.completed or '' }}" data-module="{{ t.module or '' }}">
+            {% for t in board.hold %}
+            <div class="kanban-card status-hold" data-body="{{ t.body }}" data-plan="{{ t.plan }}" data-report="{{ t.report }}" data-review="{{ t.review }}" data-blocks="{{ t.blocks }}" data-title="#{{ t.number }} {{ t.description }}" data-project="{{ project }}" data-number="{{ t.number }}" data-status="hold" data-started="{{ t.started or '' }}" data-completed="{{ t.completed or '' }}" data-module="{{ t.module or '' }}">
                 <div class="kanban-card-num">#{{ t.number }}{% if t.branch %}<span class="branch-badge">{{ t.branch }}</span>{% endif %}{% if t.module %}<span class="module-badge">{{ t.module }}</span>{% endif %}</div>
                 <div class="kanban-card-title">{{ t.description }}</div>
                 <div class="section-icons">
@@ -218,7 +218,7 @@
         document.getElementById('divider-2'),
         document.getElementById('divider-3')
     ];
-    const colNames = ['hold', 'todo', 'work', 'done', 'approved'];
+    const colNames = ['todo', 'hold', 'work', 'done', 'approved'];
 
     let dragging = null;
     let startX = 0;
@@ -226,7 +226,7 @@
 
     function saveWidths() {
         // Save flex-grow values based on current widths
-        localStorage.setItem('kanban-widths-8', JSON.stringify({
+        localStorage.setItem('kanban-widths-10', JSON.stringify({
             hold: cols.hold.offsetWidth,
             todo: cols.todo.offsetWidth,
             work: cols.work.offsetWidth,
@@ -236,7 +236,7 @@
     }
 
     function restoreWidths() {
-        const saved = localStorage.getItem('kanban-widths-8');
+        const saved = localStorage.getItem('kanban-widths-10');
         if (saved) {
             const w = JSON.parse(saved);
             // Use flex-grow - browser handles gaps/dividers automatically
