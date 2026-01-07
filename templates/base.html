@@ -816,6 +816,7 @@
                 <div class="modal-header-left">
                     <div class="modal-title-row">
                         <span class="modal-title" id="modal-title"></span>
+                        <span class="module-badge" id="modal-module" style="display: none;"></span>
                         <input type="text" class="modal-title-input" id="modal-title-input" />
                     </div>
                     <div class="modal-status" id="modal-status">
@@ -827,6 +828,8 @@
                     <div class="modal-dates" id="modal-dates"></div>
                 </div>
                 <div class="modal-header-actions">
+                    <button class="btn-icon" id="btn-prev" onclick="navigatePrev()" title="Previous task">&#x2190;</button>
+                    <button class="btn-icon" id="btn-next" onclick="navigateNext()" title="Next task">&#x2192;</button>
                     <button class="btn btn-edit" id="btn-edit" onclick="startEdit()" title="Edit">Edit</button>
                     <button class="btn btn-cancel" id="btn-cancel" onclick="cancelEdit()" style="display:none">Cancel</button>
                     <button class="btn btn-save" id="btn-save" onclick="saveEdit()" style="display:none">Save</button>
@@ -872,6 +875,7 @@
         const modal = document.getElementById('modal');
         const modalContent = document.getElementById('modal-content');
         const modalTitle = document.getElementById('modal-title');
+        const modalModule = document.getElementById('modal-module');
         const modalTitleInput = document.getElementById('modal-title-input');
         const modalDates = document.getElementById('modal-dates');
         const modalBody = document.getElementById('modal-body');
@@ -885,9 +889,11 @@
 
         let currentData = { body: '', plan: '', report: '', review: '' };
         let currentTab = 'body';
-        let currentTask = { project: '', number: 0, description: '', started: '', completed: '', status: 'todo' };
+        let currentTask = { project: '', number: 0, description: '', started: '', completed: '', status: 'todo', module: '' };
         let isEditing = false;
         let originalDescription = '';
+        let taskCards = [];
+        let currentTaskIndex = -1;
 
         function updateStatusButtons(status) {
             document.querySelectorAll('.status-btn').forEach(btn => {
@@ -921,13 +927,21 @@
             }
         }
 
-        function openModal(title, body, plan, report, review, project, number, started, completed, status) {
+        function openModal(title, body, plan, report, review, project, number, started, completed, status, module) {
             const match = title.match(/^#(\d+)\s+(.*)$/);
             const description = match ? match[2] : title;
             originalDescription = description;
 
             modalTitle.textContent = title;
             modalTitleInput.value = description;
+
+            // Display module badge
+            if (module) {
+                modalModule.textContent = module;
+                modalModule.style.display = 'inline-block';
+            } else {
+                modalModule.style.display = 'none';
+            }
 
             // Display dates
             let datesHtml = '';
@@ -936,7 +950,7 @@
             modalDates.innerHTML = datesHtml;
 
             currentData = { body: body || '', plan: plan || '', report: report || '', review: review || '' };
-            currentTask = { project, number, description, started: started || '', completed: completed || '', status: status || 'todo' };
+            currentTask = { project, number, description, started: started || '', completed: completed || '', status: status || 'todo', module: module || '' };
             currentTab = 'body';
             isEditing = false;
             showTab('body');
@@ -1092,25 +1106,62 @@
 
         document.addEventListener('keydown', e => {
             if (e.key === 'Escape') closeModal();
+            if (modal.classList.contains('active') && !isEditing) {
+                if (e.key === 'ArrowLeft') navigatePrev();
+                if (e.key === 'ArrowRight') navigateNext();
+            }
         });
 
-        document.querySelectorAll('.card[data-body], .kanban-card[data-body]').forEach(card => {
+        // Initialize task cards array for navigation
+        taskCards = Array.from(document.querySelectorAll('.card[data-body], .kanban-card[data-body]'));
+
+        taskCards.forEach((card, index) => {
             card.addEventListener('click', e => {
                 if (e.target.tagName === 'A') return;
-                openModal(
-                    card.dataset.title,
-                    card.dataset.body,
-                    card.dataset.plan,
-                    card.dataset.report,
-                    card.dataset.review,
-                    card.dataset.project,
-                    parseInt(card.dataset.number),
-                    card.dataset.started || '',
-                    card.dataset.completed || '',
-                    card.dataset.status || 'todo'
-                );
+                currentTaskIndex = index;
+                openModalFromCard(card);
             });
         });
+
+        function openModalFromCard(card) {
+            openModal(
+                card.dataset.title,
+                card.dataset.body,
+                card.dataset.plan,
+                card.dataset.report,
+                card.dataset.review,
+                card.dataset.project,
+                parseInt(card.dataset.number),
+                card.dataset.started || '',
+                card.dataset.completed || '',
+                card.dataset.status || 'todo',
+                card.dataset.module || ''
+            );
+            updateNavButtons();
+        }
+
+        function updateNavButtons() {
+            const btnPrev = document.getElementById('btn-prev');
+            const btnNext = document.getElementById('btn-next');
+            btnPrev.style.opacity = currentTaskIndex > 0 ? '1' : '0.3';
+            btnPrev.style.pointerEvents = currentTaskIndex > 0 ? 'auto' : 'none';
+            btnNext.style.opacity = currentTaskIndex < taskCards.length - 1 ? '1' : '0.3';
+            btnNext.style.pointerEvents = currentTaskIndex < taskCards.length - 1 ? 'auto' : 'none';
+        }
+
+        function navigatePrev() {
+            if (currentTaskIndex > 0) {
+                currentTaskIndex--;
+                openModalFromCard(taskCards[currentTaskIndex]);
+            }
+        }
+
+        function navigateNext() {
+            if (currentTaskIndex < taskCards.length - 1) {
+                currentTaskIndex++;
+                openModalFromCard(taskCards[currentTaskIndex]);
+            }
+        }
 
         // Create modal functionality
         const createModal = document.getElementById('create-modal');

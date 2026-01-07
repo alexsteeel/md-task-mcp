@@ -34,7 +34,7 @@ from pathlib import Path
 
 # Constants
 BASE_DIR = Path.home() / ".md-task-mcp"
-VALID_STATUSES = {"todo", "work", "done"}
+VALID_STATUSES = {"todo", "work", "done", "approved"}
 
 
 @dataclass

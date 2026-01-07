@@ -11,7 +11,7 @@ import uvicorn
 
 from core import (
     list_projects, list_tasks, read_task, write_task, delete_task,
-    get_project_dir, get_next_task_number, Task
+    get_project_dir, get_next_task_number, Task, VALID_STATUSES
 )
 
 app = FastAPI(title="Task Cloud")
@@ -24,6 +24,7 @@ class TaskUpdate(BaseModel):
     report: Optional[str] = None
     review: Optional[str] = None
     description: Optional[str] = None
+    status: Optional[str] = None
 
 
 class TaskCreate(BaseModel):
@@ -73,7 +74,8 @@ async def kanban_board(request: Request, name: str):
     board = {
         "todo": [t for t in tasks if t.status == "todo"],
         "work": [t for t in tasks if t.status == "work"],
-        "done": sorted([t for t in tasks if t.status == "done"], key=lambda t: t.number, reverse=True),
+        "done": sorted([t for t in tasks if t.status == "done"], key=lambda t: (t.completed or '', t.number), reverse=True),
+        "approved": sorted([t for t in tasks if t.status == "approved"], key=lambda t: (t.completed or '', t.number), reverse=True),
     }
     return templates.TemplateResponse("kanban.html", {
         "request": request,
@@ -99,9 +101,11 @@ async def update_task_endpoint(project: str, number: int, data: TaskUpdate):
         task.review = data.review
     if data.description is not None:
         task.description = data.description
+    if data.status is not None and data.status in VALID_STATUSES:
+        task.status = data.status
 
     write_task(project, task)
-    return {"ok": True}
+    return {"ok": True, "task": task.to_dict()}
 
 
 @app.delete("/api/task/{project}/{number}")
