@@ -143,6 +143,7 @@ This ensures the task is linked to the correct git branch for tracking.
 - `todo` - Not started
 - `work` - In progress
 - `done` - Completed
+- `approved` - Reviewed and approved
 
 ## Module Field
 
@@ -153,20 +154,3 @@ Use `module` to categorize tasks by area/component:
 - `db` - Database
 - Custom names as needed
 
-## Web UI
-
-Start web interface: `tm-web`
-
-Views:
-- `/` - Projects cloud
-- `/project/{name}` - Tasks cloud view
-- `/kanban/{name}` - Kanban board view
-
-Features:
-- Click task to view Description/Plan/Report/Review tabs
-- Edit sections inline with markdown support
-- View toggle (Cloud/Kanban)
-- Section icons (D/P/R/V) show content status
-- Module badge on task cards
-- Blocked-by badges showing depends_on tasks
-- Drag column borders to resize (saved to localStorage)
