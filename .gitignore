@@ -19,3 +19,6 @@ uv.lock
 
 # OS
 .DS_Store
+
+# Playwright screenshots (may contain private data)
+.playwright-mcp/
