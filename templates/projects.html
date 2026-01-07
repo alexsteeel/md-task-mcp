@@ -23,6 +23,9 @@
             {% if p.done > 0 %}
             <span class="stat status-done">{{ p.done }} done</span>
             {% endif %}
+            {% if p.approved > 0 %}
+            <span class="stat status-approved">{{ p.approved }} approved</span>
+            {% endif %}
         </div>
     </a>
     {% else %}

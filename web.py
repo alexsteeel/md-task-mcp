@@ -49,6 +49,7 @@ async def projects_cloud(request: Request):
             "work": sum(1 for t in tasks if t.status == "work"),
             "todo": sum(1 for t in tasks if t.status == "todo"),
             "done": sum(1 for t in tasks if t.status == "done"),
+            "approved": sum(1 for t in tasks if t.status == "approved"),
         })
     return templates.TemplateResponse("projects.html", {
         "request": request,
