@@ -351,8 +351,10 @@ def _print_task_details(task: Task):
     """Print full task details."""
     click.echo(f"# Task {task.number}: {task.description}")
     click.echo(f"status: {task.status}")
-    if task.worktree:
-        click.echo(f"worktree: {task.worktree}")
+    if task.module:
+        click.echo(f"module: {task.module}")
+    if task.branch:
+        click.echo(f"branch: {task.branch}")
     if task.started:
         click.echo(f"started: {task.started}")
     if task.completed:

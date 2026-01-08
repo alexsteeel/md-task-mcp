@@ -8,6 +8,16 @@ Markdown-based task management MCP server and CLI for Claude Code.
 uv tool install /path/to/md-task-mcp
 ```
 
+Ensure `~/.local/bin` is in your PATH:
+
+```bash
+# bash
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc
+
+# zsh
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc && source ~/.zshrc
+```
+
 ## CLI Usage
 
 ### Project Commands
