@@ -62,6 +62,9 @@
             display: flex;
             flex-wrap: wrap;
             gap: 0.6rem;
+            overflow-y: auto;
+            max-height: calc(100vh - 80px);
+            padding-bottom: 1rem;
         }
 
         .card {
@@ -691,6 +694,51 @@
             background: var(--accent);
         }
 
+        .search-container {
+            display: flex;
+            align-items: center;
+            margin-left: auto;
+            margin-right: 0.5rem;
+            gap: 0.3rem;
+        }
+
+        .search-box {
+            background: var(--card-bg);
+            border: 1px solid var(--accent);
+            border-radius: 4px;
+            padding: 0.3rem 0.6rem;
+            color: var(--text);
+            font-size: 0.8rem;
+            width: 300px;
+        }
+
+        .search-box:focus {
+            outline: none;
+            border-color: var(--done);
+        }
+
+        .search-box::placeholder {
+            color: var(--text-muted);
+        }
+
+        .search-clear {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1rem;
+            cursor: pointer;
+            padding: 0.2rem 0.4rem;
+            line-height: 1;
+        }
+
+        .search-clear:hover {
+            color: var(--text);
+        }
+
+        .card.hidden, .kanban-card.hidden {
+            display: none;
+        }
+
         .kanban-divider {
             width: 6px;
             background: var(--accent);
@@ -829,6 +877,7 @@
                     <div class="modal-header-actions">
                         <button class="btn-icon" id="btn-prev" onclick="navigatePrev()" title="Previous task">&#x2190;</button>
                         <button class="btn-icon" id="btn-next" onclick="navigateNext()" title="Next task">&#x2192;</button>
+                        <button class="btn-icon" id="btn-refresh" onclick="refreshTask()" title="Refresh">&#x21BB;</button>
                         <button class="btn btn-edit" id="btn-edit" onclick="startEdit()" title="Edit">Edit</button>
                         <button class="btn btn-cancel" id="btn-cancel" onclick="cancelEdit()" style="display:none">Cancel</button>
                         <button class="btn btn-save" id="btn-save" onclick="saveEdit()" style="display:none">Save</button>
@@ -943,7 +992,7 @@
             }
         }
 
-        function openModal(title, body, plan, report, review, blocks, project, number, started, completed, status, module) {
+        function openModal(title, body, plan, report, review, blocks, project, number, started, completed, status, module, initialTab = 'body') {
             const match = title.match(/^#(\d+)\s+(.*)$/);
             const description = match ? match[2] : title;
             originalDescription = description;
@@ -959,17 +1008,24 @@
                 modalModule.style.display = 'none';
             }
 
-            // Display dates
-            let datesHtml = '';
-            if (started) datesHtml += `<span>Started: ${started}</span>`;
-            if (completed) datesHtml += `<span>Completed: ${completed}</span>`;
-            modalDates.innerHTML = datesHtml;
+            // Display dates using DOM methods
+            modalDates.textContent = '';
+            if (started) {
+                const startSpan = document.createElement('span');
+                startSpan.textContent = `Started: ${started}`;
+                modalDates.appendChild(startSpan);
+            }
+            if (completed) {
+                const completeSpan = document.createElement('span');
+                completeSpan.textContent = `Completed: ${completed}`;
+                modalDates.appendChild(completeSpan);
+            }
 
             currentData = { body: body || '', plan: plan || '', report: report || '', review: review || '', blocks: blocks || '' };
             currentTask = { project, number, description, started: started || '', completed: completed || '', status: status || 'todo', module: module || '' };
-            currentTab = 'body';
+            currentTab = initialTab;
             isEditing = false;
-            showTab('body');
+            showTab(initialTab);
             setEditMode(false);
             updateStatusButtons(currentTask.status);
             modal.classList.add('active');
@@ -1140,7 +1196,8 @@
             });
         });
 
-        function openModalFromCard(card) {
+        function openModalFromCard(card, keepTab = false) {
+            const tabToKeep = keepTab ? currentTab : 'body';
             openModal(
                 card.dataset.title,
                 card.dataset.body,
@@ -1153,7 +1210,8 @@
                 card.dataset.started || '',
                 card.dataset.completed || '',
                 card.dataset.status || 'todo',
-                card.dataset.module || ''
+                card.dataset.module || '',
+                tabToKeep
             );
             updateNavButtons();
         }
@@ -1170,14 +1228,70 @@
         function navigatePrev() {
             if (currentTaskIndex > 0) {
                 currentTaskIndex--;
-                openModalFromCard(taskCards[currentTaskIndex]);
+                openModalFromCard(taskCards[currentTaskIndex], true);
             }
         }
 
         function navigateNext() {
             if (currentTaskIndex < taskCards.length - 1) {
                 currentTaskIndex++;
-                openModalFromCard(taskCards[currentTaskIndex]);
+                openModalFromCard(taskCards[currentTaskIndex], true);
+            }
+        }
+
+        async function refreshTask() {
+            try {
+                const res = await fetch(`/api/task/${currentTask.project}/${currentTask.number}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    currentData = {
+                        body: data.body || '',
+                        plan: data.plan || '',
+                        report: data.report || '',
+                        review: data.review || '',
+                        blocks: data.blocks || ''
+                    };
+                    currentTask.description = data.description;
+                    currentTask.status = data.status;
+                    currentTask.started = data.started || '';
+                    currentTask.completed = data.completed || '';
+                    currentTask.module = data.module || '';
+                    // Update UI
+                    modalTitle.textContent = `#${currentTask.number} ${currentTask.description}`;
+                    if (currentTask.module) {
+                        modalModule.textContent = currentTask.module;
+                        modalModule.style.display = 'inline-block';
+                    } else {
+                        modalModule.style.display = 'none';
+                    }
+                    updateStatusButtons(currentTask.status);
+                    // Update dates using DOM methods
+                    modalDates.textContent = '';
+                    if (currentTask.started) {
+                        const startSpan = document.createElement('span');
+                        startSpan.textContent = `Started: ${currentTask.started}`;
+                        modalDates.appendChild(startSpan);
+                    }
+                    if (currentTask.completed) {
+                        const completeSpan = document.createElement('span');
+                        completeSpan.textContent = `Completed: ${currentTask.completed}`;
+                        modalDates.appendChild(completeSpan);
+                    }
+                    showTab(currentTab);
+                    // Update card data
+                    const card = taskCards[currentTaskIndex];
+                    if (card) {
+                        card.dataset.body = currentData.body;
+                        card.dataset.plan = currentData.plan;
+                        card.dataset.report = currentData.report;
+                        card.dataset.review = currentData.review;
+                        card.dataset.blocks = currentData.blocks;
+                        card.dataset.title = `#${currentTask.number} ${currentTask.description}`;
+                        card.dataset.status = currentTask.status;
+                    }
+                }
+            } catch (e) {
+                console.error('Refresh failed:', e);
             }
         }
 
@@ -1258,6 +1372,71 @@
                 closeCreateModal();
             }
         });
+
+        // Search functionality
+        function filterTasks(query, updateUrl = true) {
+            const q = query.toLowerCase().trim();
+            const cards = document.querySelectorAll('.card[data-body], .kanban-card[data-body]');
+
+            cards.forEach(card => {
+                if (!q) {
+                    card.classList.remove('hidden');
+                    return;
+                }
+
+                const number = card.dataset.number || '';
+                const title = card.dataset.title || '';
+                const body = card.dataset.body || '';
+                const plan = card.dataset.plan || '';
+                const report = card.dataset.report || '';
+                const review = card.dataset.review || '';
+                const blocks = card.dataset.blocks || '';
+                const module = card.dataset.module || '';
+
+                const searchText = `#${number} ${title} ${body} ${plan} ${report} ${review} ${blocks} ${module}`.toLowerCase();
+
+                if (searchText.includes(q)) {
+                    card.classList.remove('hidden');
+                } else {
+                    card.classList.add('hidden');
+                }
+            });
+
+            // Update taskCards array for navigation
+            taskCards = Array.from(document.querySelectorAll('.card[data-body]:not(.hidden), .kanban-card[data-body]:not(.hidden)'));
+
+            // Save search to URL
+            if (updateUrl) {
+                const url = new URL(window.location);
+                if (q) {
+                    url.searchParams.set('q', query);
+                } else {
+                    url.searchParams.delete('q');
+                }
+                history.replaceState(null, '', url);
+            }
+        }
+
+        function clearSearch() {
+            const searchInput = document.getElementById('search-input');
+            if (searchInput) {
+                searchInput.value = '';
+                filterTasks('');
+            }
+        }
+
+        // Restore search from URL on page load
+        (function() {
+            const url = new URL(window.location);
+            const q = url.searchParams.get('q');
+            if (q) {
+                const searchInput = document.getElementById('search-input');
+                if (searchInput) {
+                    searchInput.value = q;
+                    filterTasks(q, false);
+                }
+            }
+        })();
     </script>
 </body>
 </html>

@@ -94,6 +94,15 @@ async def kanban_board(request: Request, name: str):
     })
 
 
+@app.get("/api/task/{project}/{number}")
+async def get_task_endpoint(project: str, number: int):
+    """Get task data."""
+    task = read_task(project, number)
+    if task is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return task.to_dict()
+
+
 @app.post("/api/task/{project}/{number}")
 async def update_task_endpoint(project: str, number: int, data: TaskUpdate):
     """Update task body, plan, or description."""
