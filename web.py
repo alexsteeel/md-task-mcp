@@ -1,5 +1,6 @@
 """Simple web UI for task cloud visualization."""
 
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -123,7 +124,14 @@ async def update_task_endpoint(project: str, number: int, data: TaskUpdate):
     if data.description is not None:
         task.description = data.description
     if data.status is not None and data.status in VALID_STATUSES:
+        old_status = task.status
         task.status = data.status
+        # Auto-set started when moving to work
+        if data.status == "work" and old_status != "work" and not task.started:
+            task.started = datetime.now().strftime("%Y-%m-%d %H:%M")
+        # Auto-set completed when moving to done/approved
+        if data.status in ("done", "approved") and old_status not in ("done", "approved") and not task.completed:
+            task.completed = datetime.now().strftime("%Y-%m-%d %H:%M")
 
     write_task(project, task)
     return {"ok": True, "task": task.to_dict()}

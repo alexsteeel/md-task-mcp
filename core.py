@@ -16,8 +16,8 @@ Each task file format:
 # Task {N}: {description}
 status: todo|work|done
 worktree: /optional/path
-started: YYYY-MM-DD
-completed: YYYY-MM-DD
+started: YYYY-MM-DD HH:MM
+completed: YYYY-MM-DD HH:MM
 
 ## Description
 Task description here.
@@ -121,8 +121,8 @@ def parse_task_file(path: Path) -> Task | None:
     # Task {N}: {description}
     status: todo|work|done
     worktree: /optional/path
-    started: YYYY-MM-DD
-    completed: YYYY-MM-DD
+    started: YYYY-MM-DD HH:MM
+    completed: YYYY-MM-DD HH:MM
 
     ## Description
     Task description here.

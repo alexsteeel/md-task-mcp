@@ -153,8 +153,8 @@ def update_task(
         report: Task completion report
         review: Code review feedback
         branch: Git branch name
-        started: Started date (YYYY-MM-DD)
-        completed: Completed date (YYYY-MM-DD)
+        started: Started datetime (YYYY-MM-DD HH:MM)
+        completed: Completed datetime (YYYY-MM-DD HH:MM)
         depends_on: List of task numbers this task depends on
 
     Returns:
