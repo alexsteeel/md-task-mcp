@@ -28,12 +28,36 @@ Implementation plan here.
 
 from __future__ import annotations
 
+import logging
+import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
 # Constants
 BASE_DIR = Path.home() / ".md-task-mcp"
+LOG_FILE = Path("/tmp/md-task-mcp.log")
+
+# Configure logging
+def _setup_logging() -> logging.Logger:
+    """Setup logging to file in /tmp/md-task-mcp.log"""
+    logger = logging.getLogger("md-task-mcp")
+    if not logger.handlers:
+        logger.setLevel(logging.DEBUG)
+        try:
+            handler = logging.FileHandler(LOG_FILE, encoding="utf-8")
+            handler.setFormatter(logging.Formatter(
+                "%(asctime)s [%(levelname)s] %(message)s",
+                datefmt="%Y-%m-%d %H:%M:%S"
+            ))
+            logger.addHandler(handler)
+        except Exception:
+            # Fallback to NullHandler if can't write log
+            logger.addHandler(logging.NullHandler())
+    return logger
+
+logger = _setup_logging()
+logger.info(f"md-task-mcp core loaded. BASE_DIR={BASE_DIR}, uid={os.getuid()}, gid={os.getgid()}")
 VALID_STATUSES = {"todo", "work", "done", "approved", "hold"}
 
 
@@ -264,7 +288,9 @@ def read_task(project: str, task_number: int) -> Task | None:
     """Read a specific task by number."""
     task_file = find_task_file(project, task_number)
     if task_file is None:
+        logger.debug(f"Task #{task_number} not found in project '{project}'")
         return None
+    logger.debug(f"Reading task #{task_number} from {task_file}")
     return parse_task_file(task_file)
 
 
@@ -340,13 +366,40 @@ def write_task(project: str, task: Task) -> Path:
     new_filename = get_task_filename(task.number, task.description)
 
     if old_file and old_file.name != new_filename:
-        old_file.unlink()
+        logger.info(f"Removing old file: {old_file} (renamed to {new_filename})")
+        try:
+            old_file.unlink()
+        except Exception as e:
+            logger.exception(f"Failed to unlink old file {old_file}")
+            raise
 
     # Write new file
     task_path = tasks_dir / new_filename
-    task_path.write_text(task_to_string(task), encoding="utf-8")
-    task.file_path = task_path
+    logger.debug(f"Writing task #{task.number} to {task_path}")
 
+    # Log file info for debugging permission issues
+    if task_path.exists():
+        stat = task_path.stat()
+        logger.debug(
+            f"Existing file: uid={stat.st_uid}, gid={stat.st_gid}, "
+            f"mode={oct(stat.st_mode)}, size={stat.st_size}"
+        )
+
+    try:
+        content = task_to_string(task)
+        task_path.write_text(content, encoding="utf-8")
+        logger.info(f"Successfully wrote task #{task.number} to {task_path} ({len(content)} bytes)")
+    except PermissionError as e:
+        logger.error(
+            f"PermissionError writing {task_path}: {e}. "
+            f"Current user: uid={os.getuid()}, gid={os.getgid()}, groups={os.getgroups()}"
+        )
+        raise
+    except Exception as e:
+        logger.exception(f"Failed to write task #{task.number} to {task_path}")
+        raise
+
+    task.file_path = task_path
     return task_path
 
 
@@ -362,6 +415,12 @@ def delete_task(project: str, task_number: int) -> bool:
     """Delete a task file. Returns True if deleted, False if not found."""
     task_file = find_task_file(project, task_number)
     if task_file is None:
+        logger.debug(f"Task #{task_number} not found in project '{project}' for deletion")
         return False
-    task_file.unlink()
-    return True
+    try:
+        task_file.unlink()
+        logger.info(f"Deleted task #{task_number} from {task_file}")
+        return True
+    except Exception as e:
+        logger.exception(f"Failed to delete task #{task_number} from {task_file}")
+        raise
