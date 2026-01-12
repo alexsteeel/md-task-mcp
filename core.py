@@ -168,9 +168,28 @@ def parse_task_file(path: Path) -> Task | None:
     current_section: str | None = None  # None, "description", "plan", "report"
     section_content: list[str] = []
 
+    # Section order - defines valid transitions
+    # After blocks, no more sections can start (blocks is the last section)
+    section_order = ["description", "plan", "report", "review", "blocks"]
+
+    def get_section_index(section: str | None) -> int:
+        """Get the index of a section in the order, -1 if None."""
+        if section is None:
+            return -1
+        return section_order.index(section) if section in section_order else -1
+
+    def can_transition_to(new_section: str) -> bool:
+        """Check if we can transition from current_section to new_section."""
+        current_idx = get_section_index(current_section)
+        new_idx = get_section_index(new_section)
+        # Can only transition to a section that comes after current
+        return new_idx > current_idx
+
     def save_section():
         if task and current_section and section_content is not None:
             content = "\n".join(section_content).strip()
+            # Unescape section headers in content
+            content = _unescape_section_headers(content)
             if current_section == "description":
                 task.body = content
             elif current_section == "plan":
@@ -196,31 +215,28 @@ def parse_task_file(path: Path) -> Task | None:
         if task is None:
             continue
 
-        # Check for section headers
+        # Check for section headers (valid only in correct order)
         line_lower = line.strip().lower()
+
+        # Try to match section headers
+        section_name = None
         if line_lower == "## description":
-            save_section()
-            current_section = "description"
-            section_content = []
-            continue
+            section_name = "description"
         elif line_lower == "## plan":
-            save_section()
-            current_section = "plan"
-            section_content = []
-            continue
+            section_name = "plan"
         elif line_lower == "## report":
-            save_section()
-            current_section = "report"
-            section_content = []
-            continue
+            section_name = "report"
         elif line_lower == "## review":
-            save_section()
-            current_section = "review"
-            section_content = []
-            continue
+            section_name = "review"
         elif line_lower == "## blocks":
+            section_name = "blocks"
+
+        # Section header is valid only if it follows the correct order
+        # This prevents "## Blocks" inside review content from being parsed as section
+        # (unless it's escaped with zero-width space during write)
+        if section_name and can_transition_to(section_name):
             save_section()
-            current_section = "blocks"
+            current_section = section_name
             section_content = []
             continue
 
@@ -246,8 +262,6 @@ def parse_task_file(path: Path) -> Task | None:
                             int(x.strip()) for x in value.split(",")
                             if x.strip().isdigit()
                         ]
-                continue
-
         # Collect section content
         if current_section is not None:
             section_content.append(line)
@@ -321,6 +335,44 @@ def set_project_description(project: str, description: str) -> None:
     readme_path.write_text(description.strip(), encoding="utf-8")
 
 
+# Section headers that need escaping in content
+_SECTION_HEADERS = {"## description", "## plan", "## report", "## review", "## blocks"}
+
+
+def _escape_section_headers(content: str) -> str:
+    """
+    Escape section headers in content to prevent parser confusion.
+
+    Replaces '## Section' with '##​Section' (with zero-width space U+200B)
+    only for known section headers at the start of a line.
+    """
+    if not content:
+        return content
+
+    lines = content.split("\n")
+    escaped_lines = []
+    for line in lines:
+        line_lower = line.strip().lower()
+        if line_lower in _SECTION_HEADERS:
+            # Insert zero-width space after ## to escape
+            escaped_lines.append(line.replace("## ", "##\u200b", 1))
+        else:
+            escaped_lines.append(line)
+    return "\n".join(escaped_lines)
+
+
+def _unescape_section_headers(content: str) -> str:
+    """
+    Unescape section headers in content.
+
+    Replaces '##​Section' (with zero-width space) back to '## Section'.
+    """
+    if not content:
+        return content
+    # Remove zero-width space after ##
+    return content.replace("##\u200b", "## ")
+
+
 def task_to_string(task: Task) -> str:
     """Convert a Task object to markdown string."""
     depends_str = ", ".join(map(str, task.depends_on)) if task.depends_on else ""
@@ -336,23 +388,23 @@ def task_to_string(task: Task) -> str:
         "## Description",
     ]
     if task.body.strip():
-        lines.append(task.body.strip())
+        lines.append(_escape_section_headers(task.body.strip()))
     lines.append("")
     lines.append("## Plan")
     if task.plan.strip():
-        lines.append(task.plan.strip())
+        lines.append(_escape_section_headers(task.plan.strip()))
     lines.append("")
     lines.append("## Report")
     if task.report.strip():
-        lines.append(task.report.strip())
+        lines.append(_escape_section_headers(task.report.strip()))
     lines.append("")
     lines.append("## Review")
     if task.review.strip():
-        lines.append(task.review.strip())
+        lines.append(_escape_section_headers(task.review.strip()))
     lines.append("")
     lines.append("## Blocks")
     if task.blocks.strip():
-        lines.append(task.blocks.strip())
+        lines.append(_escape_section_headers(task.blocks.strip()))
     lines.append("")
     return "\n".join(lines)
 

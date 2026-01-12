@@ -1088,9 +1088,19 @@
         }
 
         async function saveEdit() {
-            const newValue = modalEditor.value;
+            // Save current editor content to currentData
+            currentData[currentTab] = modalEditor.value;
+
             const newDescription = modalTitleInput.value.trim();
-            const payload = { [currentTab]: newValue };
+
+            // Send all fields - this ensures changes across multiple tabs are saved
+            const payload = {
+                body: currentData.body,
+                plan: currentData.plan,
+                report: currentData.report,
+                review: currentData.review,
+                blocks: currentData.blocks
+            };
 
             // Add description if changed
             if (newDescription && newDescription !== currentTask.description) {
@@ -1104,24 +1114,25 @@
                     body: JSON.stringify(payload)
                 });
                 if (res.ok) {
-                    currentData[currentTab] = newValue;
                     if (payload.description) {
                         currentTask.description = newDescription;
                         modalTitle.textContent = `#${currentTask.number} ${newDescription}`;
                     }
-                    // Update card data attribute
+                    // Update card data attributes for all fields
                     const card = document.querySelector(`.card[data-number="${currentTask.number}"], .kanban-card[data-number="${currentTask.number}"]`);
                     if (card) {
-                        card.dataset[currentTab] = newValue;
+                        card.dataset.body = currentData.body;
+                        card.dataset.plan = currentData.plan;
+                        card.dataset.report = currentData.report;
+                        card.dataset.review = currentData.review;
+                        card.dataset.blocks = currentData.blocks;
                         if (payload.description) {
                             card.dataset.title = `#${currentTask.number} ${newDescription}`;
                             const titleEl = card.querySelector('.card-title, .kanban-card-title');
                             if (titleEl) {
-                                if (card.classList.contains('kanban-card')) {
-                                    titleEl.textContent = newDescription;
-                                } else {
-                                    titleEl.innerHTML = `#${currentTask.number}${card.dataset.branch ? `<span class="branch-badge">${card.dataset.branch}</span>` : ''} ${newDescription}${card.dataset.module ? `<span class="module-badge">${card.dataset.module}</span>` : ''}`;
-                                }
+                                titleEl.textContent = card.classList.contains('kanban-card')
+                                    ? newDescription
+                                    : `#${currentTask.number} ${newDescription}`;
                             }
                         }
                     }
