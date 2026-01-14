@@ -552,42 +552,42 @@
         .kanban-column {
             background: var(--card-bg);
             border-radius: 8px;
-            padding: 0.3rem 6px;
+            padding: 0.3rem 2px;
             display: flex;
             flex-direction: column;
             overflow: hidden;
         }
 
-        /* Column min-width = N * card-width + (N-1) * gap + 2 * padding(6px) */
+        /* Column min-width = N * card-width + (N-1) * gap + 2 * padding(2px) */
         /* flex-grow proportional to min cards: HOLD=1, TODO=3, WORK=1, DONE=2, APPROVED=3 */
         .kanban-column.col-hold {
             /* min 1 card, grows proportionally */
             flex: 1 1 0;
-            min-width: calc(var(--card-width) + 12px);
+            min-width: calc(var(--card-width) + 4px);
         }
 
         .kanban-column.col-todo {
             /* min 3 cards, grows proportionally */
             flex: 3 1 0;
-            min-width: calc(3 * var(--card-width) + 2 * var(--card-gap) + 12px);
+            min-width: calc(3 * var(--card-width) + 2 * var(--card-gap) + 4px);
         }
 
         .kanban-column.col-work {
             /* min 1 card, grows proportionally */
             flex: 1 1 0;
-            min-width: calc(var(--card-width) + 12px);
+            min-width: calc(var(--card-width) + 4px);
         }
 
         .kanban-column.col-done {
             /* min 2 cards, grows proportionally */
             flex: 2 1 0;
-            min-width: calc(2 * var(--card-width) + 1 * var(--card-gap) + 12px);
+            min-width: calc(2 * var(--card-width) + 1 * var(--card-gap) + 4px);
         }
 
         .kanban-column.col-approved {
             /* min 3 cards, grows proportionally */
             flex: 3 1 0;
-            min-width: calc(3 * var(--card-width) + 2 * var(--card-gap) + 12px);
+            min-width: calc(3 * var(--card-width) + 2 * var(--card-gap) + 4px);
         }
 
         .kanban-header {
@@ -740,7 +740,7 @@
         }
 
         .kanban-divider {
-            width: 6px;
+            width: 2px;
             background: var(--accent);
             cursor: col-resize;
             opacity: 0.2;
@@ -862,6 +862,107 @@
             justify-content: flex-end;
             margin-top: 0.5rem;
         }
+
+        /* Attachments section */
+        .attachments-section {
+            border-top: 1px solid var(--accent);
+            margin-top: 1rem;
+            padding-top: 0.75rem;
+            display: none;
+        }
+
+        .attachments-section.visible {
+            display: block;
+        }
+
+        .attachments-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .attachments-title {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        .attachments-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+        }
+
+        .attachment-item {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            background: var(--bg);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+        }
+
+        .attachment-icon {
+            font-size: 0.9rem;
+        }
+
+        .attachment-name {
+            color: var(--text);
+            text-decoration: none;
+            max-width: 150px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .attachment-name:hover {
+            color: var(--done);
+        }
+
+        .attachment-size {
+            color: var(--text-muted);
+            font-size: 0.65rem;
+        }
+
+        .attachment-delete {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 0.8rem;
+            padding: 0 0.2rem;
+            line-height: 1;
+        }
+
+        .attachment-delete:hover {
+            color: var(--hold);
+        }
+
+        .btn-upload {
+            background: var(--accent);
+            color: var(--text);
+            border: none;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            cursor: pointer;
+        }
+
+        .btn-upload:hover {
+            background: var(--done);
+        }
+
+        .upload-input {
+            display: none;
+        }
+
+        .attachments-empty {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            font-style: italic;
+        }
     </style>
 </head>
 <body>
@@ -904,6 +1005,20 @@
             </div>
             <div class="modal-body" id="modal-body"></div>
             <textarea class="modal-editor" id="modal-editor"></textarea>
+
+            <!-- Attachments section (shown only in body tab) -->
+            <div class="attachments-section" id="attachments-section">
+                <div class="attachments-header">
+                    <span class="attachments-title">Attachments</span>
+                    <label class="btn-upload">
+                        Upload
+                        <input type="file" class="upload-input" id="attachment-upload" multiple onchange="uploadAttachments(this.files)">
+                    </label>
+                </div>
+                <div class="attachments-list" id="attachments-list">
+                    <span class="attachments-empty">No attachments</span>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -1041,6 +1156,15 @@
                 const content = currentData[tab] || `_No ${labels[tab]}_`;
                 modalBody.innerHTML = marked.parse(content);
             }
+
+            // Show attachments section only in body tab
+            const attachmentsSection = document.getElementById('attachments-section');
+            if (tab === 'body') {
+                attachmentsSection.classList.add('visible');
+                loadAttachments();
+            } else {
+                attachmentsSection.classList.remove('visible');
+            }
         }
 
         function setEditMode(editing) {
@@ -1177,19 +1301,37 @@
             });
         });
 
-        function closeModal() {
+        function hasUnsavedChanges() {
+            if (!isEditing) return false;
+            // Check if editor content differs from saved data
+            if (modalEditor.value !== currentData[currentTab]) return true;
+            // Check if title was changed
+            if (modalTitleInput.value.trim() !== currentTask.description) return true;
+            return false;
+        }
+
+        function closeModal(force = false) {
+            if (!force && hasUnsavedChanges()) {
+                if (!confirm('You have unsaved changes. Close without saving?')) {
+                    return;
+                }
+            }
             modal.classList.remove('active');
             modalContent.classList.remove('fullscreen');
             isEditing = false;
             location.reload();
         }
 
-        modal.addEventListener('click', e => {
-            if (e.target === modal) closeModal();
-        });
+        // Disabled: close on backdrop click - prevents accidental data loss
+        // modal.addEventListener('click', e => {
+        //     if (e.target === modal) closeModal();
+        // });
 
         document.addEventListener('keydown', e => {
-            if (e.key === 'Escape') closeModal();
+            if (e.key === 'Escape' && modal.classList.contains('active')) {
+                e.preventDefault();
+                closeModal();
+            }
             if (modal.classList.contains('active') && !isEditing) {
                 if (e.key === 'ArrowLeft') navigatePrev();
                 if (e.key === 'ArrowRight') navigateNext();
@@ -1333,8 +1475,19 @@
             createNameInput.focus();
         }
 
-        function closeCreateModal() {
+        function hasUnsavedCreateData() {
+            return createNameInput.value.trim() !== '' || createBodyInput.value.trim() !== '';
+        }
+
+        function closeCreateModal(force = false) {
+            if (!force && hasUnsavedCreateData()) {
+                if (!confirm('You have unsaved data. Close without saving?')) {
+                    return;
+                }
+            }
             createModal.classList.remove('active');
+            createNameInput.value = '';
+            createBodyInput.value = '';
         }
 
         async function submitCreate(e) {
@@ -1362,7 +1515,7 @@
                 }
 
                 if (res.ok) {
-                    closeCreateModal();
+                    closeCreateModal(true);
                     location.reload();
                 } else {
                     const err = await res.json();
@@ -1374,12 +1527,14 @@
             }
         }
 
-        createModal.addEventListener('click', e => {
-            if (e.target === createModal) closeCreateModal();
-        });
+        // Disabled: close on backdrop click - prevents accidental data loss
+        // createModal.addEventListener('click', e => {
+        //     if (e.target === createModal) closeCreateModal();
+        // });
 
         document.addEventListener('keydown', e => {
             if (e.key === 'Escape' && createModal.classList.contains('active')) {
+                e.preventDefault();
                 closeCreateModal();
             }
         });
@@ -1448,6 +1603,138 @@
                 }
             }
         })();
+
+        // =============================================================================
+        // Attachments functions
+        // =============================================================================
+
+        let currentAttachments = [];
+
+        function getFileIcon(filename) {
+            const ext = filename.split('.').pop().toLowerCase();
+            const imageExts = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp'];
+            const docExts = ['pdf', 'doc', 'docx', 'txt', 'md', 'rtf'];
+            const codeExts = ['py', 'js', 'ts', 'html', 'css', 'json', 'xml', 'yml', 'yaml'];
+
+            if (imageExts.includes(ext)) return '\uD83D\uDDBC\uFE0F';
+            if (docExts.includes(ext)) return '\uD83D\uDCC4';
+            if (codeExts.includes(ext)) return '\uD83D\uDCDD';
+            return '\uD83D\uDCC1';
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
+        async function loadAttachments() {
+            if (!currentTask.project || !currentTask.number) return;
+
+            try {
+                const res = await fetch(`/api/task/${currentTask.project}/${currentTask.number}/attachments`);
+                if (res.ok) {
+                    const data = await res.json();
+                    currentAttachments = data.attachments || [];
+                    renderAttachments();
+                }
+            } catch (e) {
+                console.error('Failed to load attachments:', e);
+            }
+        }
+
+        function renderAttachments() {
+            const listEl = document.getElementById('attachments-list');
+            listEl.textContent = '';
+
+            if (currentAttachments.length === 0) {
+                const emptyEl = document.createElement('span');
+                emptyEl.className = 'attachments-empty';
+                emptyEl.textContent = 'No attachments';
+                listEl.appendChild(emptyEl);
+                return;
+            }
+
+            currentAttachments.forEach(att => {
+                const itemEl = document.createElement('div');
+                itemEl.className = 'attachment-item';
+
+                const iconEl = document.createElement('span');
+                iconEl.className = 'attachment-icon';
+                iconEl.textContent = getFileIcon(att.name);
+
+                const linkEl = document.createElement('a');
+                linkEl.className = 'attachment-name';
+                linkEl.href = `/api/task/${currentTask.project}/${currentTask.number}/attachments/${encodeURIComponent(att.name)}`;
+                linkEl.textContent = att.name;
+                linkEl.title = att.name;
+                linkEl.target = '_blank';
+
+                const sizeEl = document.createElement('span');
+                sizeEl.className = 'attachment-size';
+                sizeEl.textContent = formatFileSize(att.size);
+
+                const deleteEl = document.createElement('button');
+                deleteEl.className = 'attachment-delete';
+                deleteEl.textContent = '\u00D7';
+                deleteEl.title = 'Delete';
+                deleteEl.onclick = () => deleteAttachmentItem(att.name);
+
+                itemEl.appendChild(iconEl);
+                itemEl.appendChild(linkEl);
+                itemEl.appendChild(sizeEl);
+                itemEl.appendChild(deleteEl);
+                listEl.appendChild(itemEl);
+            });
+        }
+
+        async function uploadAttachments(files) {
+            if (!files || files.length === 0) return;
+
+            for (const file of files) {
+                const formData = new FormData();
+                formData.append('file', file);
+
+                try {
+                    const res = await fetch(`/api/task/${currentTask.project}/${currentTask.number}/attachments`, {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (res.ok) {
+                        await loadAttachments();
+                    } else {
+                        const err = await res.json();
+                        alert(`Failed to upload ${file.name}: ${err.detail || 'Unknown error'}`);
+                    }
+                } catch (e) {
+                    console.error('Upload failed:', e);
+                    alert(`Failed to upload ${file.name}`);
+                }
+            }
+
+            // Clear the file input
+            document.getElementById('attachment-upload').value = '';
+        }
+
+        async function deleteAttachmentItem(filename) {
+            if (!confirm(`Delete attachment "${filename}"?`)) return;
+
+            try {
+                const res = await fetch(`/api/task/${currentTask.project}/${currentTask.number}/attachments/${encodeURIComponent(filename)}`, {
+                    method: 'DELETE'
+                });
+
+                if (res.ok) {
+                    await loadAttachments();
+                } else {
+                    alert('Failed to delete attachment');
+                }
+            } catch (e) {
+                console.error('Delete failed:', e);
+                alert('Failed to delete attachment');
+            }
+        }
     </script>
 </body>
 </html>

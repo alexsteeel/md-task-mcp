@@ -1,11 +1,12 @@
 """Simple web UI for task cloud visualization."""
 
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, Request, HTTPException, UploadFile, File
+from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 import uvicorn
@@ -13,11 +14,38 @@ import uvicorn
 from core import (
     list_projects, list_tasks, read_task, write_task, delete_task,
     get_project_dir, get_next_task_number, get_project_description,
-    set_project_description, Task, VALID_STATUSES
+    set_project_description, Task, VALID_STATUSES,
+    list_attachments, add_attachment, get_attachment_path, delete_attachment,
 )
 
+
+def find_templates_dir() -> Path:
+    """Find templates directory in various locations."""
+    # 1. Local development path (next to this file)
+    local = Path(__file__).parent / "templates"
+    if local.exists():
+        return local
+
+    # 2. Installed data path (sys.prefix/share/md-task-mcp/templates)
+    installed = Path(sys.prefix) / "share" / "md-task-mcp" / "templates"
+    if installed.exists():
+        return installed
+
+    # 3. User install path (~/.local/share/md-task-mcp/templates)
+    user_data = Path.home() / ".local" / "share" / "md-task-mcp" / "templates"
+    if user_data.exists():
+        return user_data
+
+    raise RuntimeError(
+        f"Templates directory not found. Searched:\n"
+        f"  - {local}\n"
+        f"  - {installed}\n"
+        f"  - {user_data}"
+    )
+
+
 app = FastAPI(title="Task Cloud")
-templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
+templates = Jinja2Templates(directory=find_templates_dir())
 
 
 class TaskUpdate(BaseModel):
@@ -185,6 +213,64 @@ async def create_task_endpoint(project: str, data: TaskCreate):
 
     write_task(project, task)
     return {"ok": True, "number": task_number, "task": task.to_dict()}
+
+
+# =============================================================================
+# Attachments API
+# =============================================================================
+
+
+@app.get("/api/task/{project}/{number}/attachments")
+async def list_attachments_endpoint(project: str, number: int):
+    """List all attachments for a task."""
+    task = read_task(project, number)
+    if task is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    return {"ok": True, "attachments": list_attachments(project, number)}
+
+
+@app.post("/api/task/{project}/{number}/attachments")
+async def upload_attachment_endpoint(project: str, number: int, file: UploadFile = File(...)):
+    """Upload an attachment to a task."""
+    task = read_task(project, number)
+    if task is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Filename is required")
+
+    content = await file.read()
+    file_path = add_attachment(project, number, file.filename, content)
+
+    return {
+        "ok": True,
+        "name": file_path.name,
+        "path": str(file_path),
+        "size": len(content),
+    }
+
+
+@app.get("/api/task/{project}/{number}/attachments/{filename:path}")
+async def download_attachment_endpoint(project: str, number: int, filename: str):
+    """Download an attachment."""
+    file_path = get_attachment_path(project, number, filename)
+    if file_path is None:
+        raise HTTPException(status_code=404, detail="Attachment not found")
+
+    return FileResponse(
+        path=file_path,
+        filename=filename,
+        media_type="application/octet-stream",
+    )
+
+
+@app.delete("/api/task/{project}/{number}/attachments/{filename:path}")
+async def delete_attachment_endpoint(project: str, number: int, filename: str):
+    """Delete an attachment."""
+    if delete_attachment(project, number, filename):
+        return {"ok": True}
+    raise HTTPException(status_code=404, detail="Attachment not found")
 
 
 def main():

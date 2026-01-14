@@ -31,6 +31,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -419,6 +420,18 @@ def write_task(project: str, task: Task) -> Path:
 
     if old_file and old_file.name != new_filename:
         logger.info(f"Removing old file: {old_file} (renamed to {new_filename})")
+
+        # Rename attachments directory if exists
+        old_attachments_dir = old_file.parent / old_file.stem
+        new_attachments_dir = old_file.parent / Path(new_filename).stem
+        if old_attachments_dir.exists() and old_attachments_dir.is_dir():
+            try:
+                old_attachments_dir.rename(new_attachments_dir)
+                logger.info(f"Renamed attachments dir: {old_attachments_dir} -> {new_attachments_dir}")
+            except Exception as e:
+                logger.exception(f"Failed to rename attachments dir {old_attachments_dir}")
+                raise
+
         try:
             old_file.unlink()
         except Exception as e:
@@ -464,15 +477,155 @@ def get_next_task_number(project: str) -> int:
 
 
 def delete_task(project: str, task_number: int) -> bool:
-    """Delete a task file. Returns True if deleted, False if not found."""
+    """Delete a task file and its attachments directory. Returns True if deleted, False if not found."""
     task_file = find_task_file(project, task_number)
     if task_file is None:
         logger.debug(f"Task #{task_number} not found in project '{project}' for deletion")
         return False
     try:
+        # Delete attachments directory if exists
+        attachments_dir = task_file.parent / task_file.stem
+        if attachments_dir.exists() and attachments_dir.is_dir():
+            shutil.rmtree(attachments_dir)
+            logger.info(f"Deleted attachments directory: {attachments_dir}")
+
         task_file.unlink()
         logger.info(f"Deleted task #{task_number} from {task_file}")
         return True
     except Exception as e:
         logger.exception(f"Failed to delete task #{task_number} from {task_file}")
         raise
+
+
+# =============================================================================
+# Attachments functions
+# =============================================================================
+
+
+def get_attachments_dir(project: str, task_number: int, create: bool = False) -> Path | None:
+    """
+    Get attachments directory for a task.
+
+    The attachments directory has the same name as the task file stem.
+    E.g., for task file "001-add-auth.md", attachments are in "001-add-auth/".
+
+    Returns None if task doesn't exist.
+    """
+    task_file = find_task_file(project, task_number)
+    if task_file is None:
+        return None
+
+    attachments_dir = task_file.parent / task_file.stem
+    if create:
+        attachments_dir.mkdir(exist_ok=True)
+        logger.debug(f"Created attachments directory: {attachments_dir}")
+
+    return attachments_dir
+
+
+def list_attachments(project: str, task_number: int) -> list[dict]:
+    """
+    List all attachments for a task.
+
+    Returns list of dicts: [{"name": "file.png", "path": "/full/path", "size": 1234}, ...]
+    """
+    attachments_dir = get_attachments_dir(project, task_number)
+    if attachments_dir is None or not attachments_dir.exists():
+        return []
+
+    result = []
+    for f in sorted(attachments_dir.iterdir()):
+        if f.is_file():
+            result.append({
+                "name": f.name,
+                "path": str(f),
+                "size": f.stat().st_size,
+            })
+
+    return result
+
+
+def add_attachment(project: str, task_number: int, filename: str, content: bytes) -> Path:
+    """
+    Add attachment to a task. Returns path to saved file.
+
+    Creates attachments directory if it doesn't exist.
+    """
+    attachments_dir = get_attachments_dir(project, task_number, create=True)
+    if attachments_dir is None:
+        raise ValueError(f"Task #{task_number} not found in project '{project}'")
+
+    # Sanitize filename
+    safe_filename = Path(filename).name
+    if not safe_filename:
+        raise ValueError("Invalid filename")
+
+    file_path = attachments_dir / safe_filename
+    file_path.write_bytes(content)
+    logger.info(f"Added attachment: {file_path} ({len(content)} bytes)")
+
+    return file_path
+
+
+def get_attachment_path(project: str, task_number: int, filename: str) -> Path | None:
+    """Get path to attachment file. Returns None if not found."""
+    attachments_dir = get_attachments_dir(project, task_number)
+    if attachments_dir is None:
+        return None
+
+    file_path = attachments_dir / filename
+    if file_path.exists() and file_path.is_file():
+        return file_path
+
+    return None
+
+
+def delete_attachment(project: str, task_number: int, filename: str) -> bool:
+    """Delete an attachment. Returns True if deleted, False if not found."""
+    file_path = get_attachment_path(project, task_number, filename)
+    if file_path is None:
+        return False
+
+    try:
+        file_path.unlink()
+        logger.info(f"Deleted attachment: {file_path}")
+
+        # Remove empty attachments directory
+        attachments_dir = file_path.parent
+        if attachments_dir.exists() and not any(attachments_dir.iterdir()):
+            attachments_dir.rmdir()
+            logger.debug(f"Removed empty attachments directory: {attachments_dir}")
+
+        return True
+    except Exception as e:
+        logger.exception(f"Failed to delete attachment: {file_path}")
+        raise
+
+
+def copy_attachment(project: str, task_number: int, source_path: str, filename: str | None = None) -> Path:
+    """
+    Copy a file to task attachments.
+
+    Args:
+        project: Project name
+        task_number: Task number
+        source_path: Path to source file to copy
+        filename: Optional new filename (default: use source filename)
+
+    Returns path to copied file.
+    """
+    source = Path(source_path)
+    if not source.exists():
+        raise FileNotFoundError(f"Source file not found: {source_path}")
+
+    attachments_dir = get_attachments_dir(project, task_number, create=True)
+    if attachments_dir is None:
+        raise ValueError(f"Task #{task_number} not found in project '{project}'")
+
+    target_filename = filename or source.name
+    target_path = attachments_dir / target_filename
+
+    shutil.copy2(source, target_path)
+    logger.info(f"Copied attachment: {source} -> {target_path}")
+
+    return target_path

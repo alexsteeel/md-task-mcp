@@ -18,6 +18,10 @@ tm-web = "web:main"
 
 [tool.setuptools]
 py-modules = ["core", "main", "cli", "web"]
+include-package-data = true
+
+[tool.setuptools.data-files]
+"share/md-task-mcp/templates" = ["templates/*.html"]
 
 [build-system]
 requires = ["setuptools>=61.0"]

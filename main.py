@@ -20,6 +20,9 @@ from core import (
     read_task as _read_task,
     write_task,
     list_projects as _list_projects,
+    list_attachments as _list_attachments,
+    copy_attachment,
+    delete_attachment as _delete_attachment,
 )
 
 mcp = FastMCP("md-task-mcp")
@@ -198,6 +201,102 @@ def update_task(
 
     write_task(project, task)
     return task.to_dict()
+
+
+# =============================================================================
+# Attachment tools
+# =============================================================================
+
+
+@mcp.tool
+def list_attachments(project: str, number: int) -> list[dict]:
+    """
+    List attachments for a task.
+
+    Args:
+        project: Project name
+        number: Task number
+
+    Returns:
+        List of attachments: [{"name": "file.png", "path": "/full/path", "size": 1234}, ...]
+
+    Note:
+        Use Claude's Read tool to view attachment contents.
+        Read tool supports images (PNG, JPG, etc.) natively.
+    """
+    project_dir = get_project_dir(project)
+    if not project_dir.exists():
+        raise ValueError(f"Project '{project}' does not exist")
+
+    task = _read_task(project, number)
+    if task is None:
+        raise ValueError(f"Task #{number} not found in project '{project}'")
+
+    return _list_attachments(project, number)
+
+
+@mcp.tool
+def add_attachment(
+    project: str,
+    number: int,
+    source_path: str,
+    filename: str | None = None,
+) -> dict:
+    """
+    Copy a file to task attachments.
+
+    Args:
+        project: Project name
+        number: Task number
+        source_path: Path to source file to copy
+        filename: Optional new filename (default: use source filename)
+
+    Returns:
+        {"ok": True, "name": "filename", "path": "/full/path", "size": 1234}
+    """
+    project_dir = get_project_dir(project)
+    if not project_dir.exists():
+        raise ValueError(f"Project '{project}' does not exist")
+
+    task = _read_task(project, number)
+    if task is None:
+        raise ValueError(f"Task #{number} not found in project '{project}'")
+
+    file_path = copy_attachment(project, number, source_path, filename)
+
+    return {
+        "ok": True,
+        "name": file_path.name,
+        "path": str(file_path),
+        "size": file_path.stat().st_size,
+    }
+
+
+@mcp.tool
+def delete_attachment(project: str, number: int, filename: str) -> dict:
+    """
+    Delete an attachment from a task.
+
+    Args:
+        project: Project name
+        number: Task number
+        filename: Name of the attachment file to delete
+
+    Returns:
+        {"ok": True} if deleted, raises error if not found
+    """
+    project_dir = get_project_dir(project)
+    if not project_dir.exists():
+        raise ValueError(f"Project '{project}' does not exist")
+
+    task = _read_task(project, number)
+    if task is None:
+        raise ValueError(f"Task #{number} not found in project '{project}'")
+
+    if not _delete_attachment(project, number, filename):
+        raise ValueError(f"Attachment '{filename}' not found for task #{number}")
+
+    return {"ok": True}
 
 
 def main():
