@@ -24,10 +24,14 @@ Use infinitive form (что сделать?) with brief goal:
 | `tasks(project, number)` | Get full task details |
 | `create_task(project, description, body?, plan?)` | Create a new task |
 | `update_task(project, number, ...)` | Update task fields |
+| `list_attachments(project, number)` | List attachments with paths |
+| `add_attachment(project, number, source_path, filename?)` | Copy file to attachments |
+| `delete_attachment(project, number, filename)` | Delete attachment |
 
 ## Task File Format
 
-Tasks stored in `~/.md-task-mcp/{project}/tasks/{NNN}-{slug}.md`:
+Tasks stored in `~/.md-task-mcp/{project}/tasks/{NNN}-{slug}.md`.
+Attachments stored in `~/.md-task-mcp/{project}/tasks/{NNN}-{slug}/` folder:
 
 ```markdown
 # Task 1: Task summary
@@ -142,6 +146,24 @@ update_task(
 ```
 
 This ensures the task is linked to the correct git branch for tracking.
+
+### Work with Attachments
+
+```
+# List attachments (returns paths)
+list_attachments("my-project", 1)
+# Returns: [{"name": "screenshot.png", "path": "/full/path/...", "size": 1234}, ...]
+
+# Add attachment (copy file to task folder)
+add_attachment("my-project", 1, "/path/to/file.png")
+add_attachment("my-project", 1, "/path/to/file.png", "renamed.png")
+
+# Read attachment content (use Claude's Read tool)
+Read("/full/path/from/list_attachments/screenshot.png")
+
+# Delete attachment
+delete_attachment("my-project", 1, "screenshot.png")
+```
 
 ## Status Values
 

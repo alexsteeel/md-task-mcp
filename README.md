@@ -100,8 +100,18 @@ create_task(project, description, body?, plan?)
 
 ### `update_task` - Update Any Field
 ```
-update_task(project, number, description?, status?, plan?, body?, worktree?, started?, completed?)
+update_task(project, number, description?, status?, plan?, body?, report?, review?, blocks?, module?, branch?, started?, completed?, depends_on?)
 ```
+
+### Attachments Tools
+
+```
+list_attachments(project, number)           # List attachments with paths
+add_attachment(project, number, source_path, filename?)  # Copy file to attachments
+delete_attachment(project, number, filename)  # Delete attachment
+```
+
+To read attachment content, use Claude's Read tool with the path from `list_attachments`.
 
 ## File Structure
 
@@ -110,6 +120,9 @@ update_task(project, number, description?, status?, plan?, body?, worktree?, sta
 ├── project-name/
 │   └── tasks/
 │       ├── 001-implement-auth.md
+│       ├── 001-implement-auth/     # attachments folder
+│       │   ├── screenshot.png
+│       │   └── design.pdf
 │       ├── 002-fix-login-bug.md
 │       └── ...
 ```
