@@ -77,20 +77,31 @@ class ProjectUpdate(BaseModel):
 async def projects_cloud(request: Request):
     """Display projects as a cloud."""
     projects = []
+    # Summary stats across all projects
+    summary = {"total": 0, "hold": 0, "work": 0, "todo": 0, "done": 0, "approved": 0}
+
     for name in list_projects():
         tasks = list_tasks(name)
-        projects.append({
+        stats = {
             "name": name,
             "description": get_project_description(name),
             "total": len(tasks),
+            "hold": sum(1 for t in tasks if t.status == "hold"),
             "work": sum(1 for t in tasks if t.status == "work"),
             "todo": sum(1 for t in tasks if t.status == "todo"),
             "done": sum(1 for t in tasks if t.status == "done"),
             "approved": sum(1 for t in tasks if t.status == "approved"),
-        })
+        }
+        projects.append(stats)
+        # Accumulate summary
+        for key in summary:
+            summary[key] += stats[key]
+
     return templates.TemplateResponse("projects.html", {
         "request": request,
         "projects": projects,
+        "summary": summary,
+        "project_count": len(projects),
     })
 
 
@@ -109,12 +120,13 @@ async def tasks_cloud(request: Request, name: str):
 async def kanban_board(request: Request, name: str):
     """Display tasks as a kanban board."""
     tasks = list_tasks(name)
+    # Sort all columns by file modification time (most recent first)
     board = {
-        "hold": [t for t in tasks if t.status == "hold"],
-        "todo": [t for t in tasks if t.status == "todo"],
-        "work": [t for t in tasks if t.status == "work"],
-        "done": sorted([t for t in tasks if t.status == "done"], key=lambda t: (t.completed or '', t.number), reverse=True),
-        "approved": sorted([t for t in tasks if t.status == "approved"], key=lambda t: (t.completed or '', t.number), reverse=True),
+        "hold": sorted([t for t in tasks if t.status == "hold"], key=lambda t: t.mtime, reverse=True),
+        "todo": sorted([t for t in tasks if t.status == "todo"], key=lambda t: t.mtime, reverse=True),
+        "work": sorted([t for t in tasks if t.status == "work"], key=lambda t: t.mtime, reverse=True),
+        "done": sorted([t for t in tasks if t.status == "done"], key=lambda t: t.mtime, reverse=True),
+        "approved": sorted([t for t in tasks if t.status == "approved"], key=lambda t: t.mtime, reverse=True),
     }
     return templates.TemplateResponse("kanban.html", {
         "request": request,

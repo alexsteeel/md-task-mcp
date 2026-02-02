@@ -452,6 +452,42 @@
             border-radius: 3px;
         }
 
+        /* Summary bar for projects page */
+        .summary-bar {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .summary-total {
+            font-size: 0.8rem;
+            color: var(--text);
+        }
+
+        .summary-total strong {
+            font-weight: 600;
+        }
+
+        .summary-stats {
+            display: flex;
+            gap: 0.25rem;
+        }
+
+        .summary-stat {
+            padding: 0.12rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: #fff;
+        }
+
+        .summary-stat.status-work {
+            color: #000;
+        }
+
         .depends {
             margin-top: 0.25rem;
             font-size: 0.6rem;

@@ -8,6 +8,19 @@
     <button class="btn-create" onclick="openCreateModal('project')" title="Create Project">+</button>
 </header>
 
+{% if project_count > 0 %}
+<div class="summary-bar">
+    <span class="summary-total"><strong>{{ project_count }}</strong> project{{ 's' if project_count != 1 else '' }} · <strong>{{ summary.total }}</strong> task{{ 's' if summary.total != 1 else '' }}</span>
+    <div class="summary-stats">
+        {% if summary.hold > 0 %}<span class="summary-stat status-hold">{{ summary.hold }} hold</span>{% endif %}
+        {% if summary.work > 0 %}<span class="summary-stat status-work">{{ summary.work }} work</span>{% endif %}
+        {% if summary.todo > 0 %}<span class="summary-stat status-todo">{{ summary.todo }} todo</span>{% endif %}
+        {% if summary.done > 0 %}<span class="summary-stat status-done">{{ summary.done }} done</span>{% endif %}
+        {% if summary.approved > 0 %}<span class="summary-stat status-approved">{{ summary.approved }} approved</span>{% endif %}
+    </div>
+</div>
+{% endif %}
+
 <div class="cloud">
     {% for p in projects %}
     <a href="/kanban/{{ p.name }}" class="card">
@@ -17,6 +30,9 @@
         {% endif %}
         <div class="card-meta">{{ p.total }} task{{ 's' if p.total != 1 else '' }}</div>
         <div class="stats">
+            {% if p.hold > 0 %}
+            <span class="stat status-hold">{{ p.hold }} hold</span>
+            {% endif %}
             {% if p.work > 0 %}
             <span class="stat status-work">{{ p.work }} work</span>
             {% endif %}

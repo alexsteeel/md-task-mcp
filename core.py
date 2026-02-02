@@ -80,6 +80,7 @@ class Task:
     blocks: str = ""  # Blocks section content (what's blocking this task)
     depends_on: list[int] = field(default_factory=list)  # Task dependencies
     file_path: Path | None = field(default=None, repr=False)
+    mtime: float = 0.0  # File modification time (Unix timestamp)
 
     def to_dict(self) -> dict:
         """Convert task to dictionary."""
@@ -97,6 +98,7 @@ class Task:
             "review": self.review.strip(),
             "blocks": self.blocks.strip(),
             "depends_on": self.depends_on,
+            "mtime": self.mtime,
         }
 
 
@@ -158,6 +160,9 @@ def parse_task_file(path: Path) -> Task | None:
     if not path.exists():
         return None
 
+    # Get file modification time
+    file_mtime = path.stat().st_mtime
+
     content = path.read_text(encoding="utf-8")
     lines = content.split("\n")
 
@@ -210,6 +215,7 @@ def parse_task_file(path: Path) -> Task | None:
                 number=int(header_match.group(1)),
                 description=header_match.group(2).strip(),
                 file_path=path,
+                mtime=file_mtime,
             )
             continue
 

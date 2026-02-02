@@ -18,6 +18,16 @@ echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc && source ~/.zshrc
 ```
 
+### Updating
+
+After making changes to the source code, reinstall with `--force --reinstall`:
+
+```bash
+uv tool install --force --reinstall /path/to/md-task-mcp
+```
+
+**Important:** If `tm-web` is running, restart it after reinstalling — the server doesn't reload automatically.
+
 ## CLI Usage
 
 ### Project Commands
@@ -57,12 +67,21 @@ tm completion zsh --install
 tm-web
 ```
 
-Open http://localhost:8080 in browser.
+Open http://localhost:8000 in browser.
 
 Views:
-- `/` - Projects cloud
+- `/` - Projects cloud with summary statistics
 - `/project/{name}` - Tasks cloud view
 - `/kanban/{name}` - Kanban board view
+
+### Development Mode
+
+For development with auto-reload on file changes:
+
+```bash
+cd /path/to/md-task-mcp
+python -m uvicorn web:app --port 8000 --reload
+```
 
 ## Claude Code Skill
 
