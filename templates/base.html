@@ -1112,6 +1112,7 @@
 
         async function changeStatus(newStatus) {
             if (newStatus === currentTask.status) return;
+            const oldStatus = currentTask.status;  // Save before change
 
             try {
                 const res = await fetch(`/api/task/${currentTask.project}/${currentTask.number}`, {
@@ -1128,11 +1129,30 @@
                         card.dataset.status = newStatus;
                         card.className = card.className.replace(/status-\w+/, `status-${newStatus}`);
                     }
-                    // Navigate to next task or close modal if no more tasks
-                    if (currentTaskIndex < taskCards.length - 1) {
-                        navigateNext();
-                    } else if (currentTaskIndex > 0) {
-                        navigatePrev();
+                    // Navigate to fresher task with same old status (search upward in DOM)
+                    let targetIndex = -1;
+
+                    // Search upward from current position for card with same old status
+                    for (let i = currentTaskIndex - 1; i >= 0; i--) {
+                        if (taskCards[i].dataset.status === oldStatus) {
+                            targetIndex = i;
+                            break;
+                        }
+                    }
+
+                    // If not found above, search from end (wrap around to find any with same status)
+                    if (targetIndex === -1) {
+                        for (let i = taskCards.length - 1; i > currentTaskIndex; i--) {
+                            if (taskCards[i].dataset.status === oldStatus) {
+                                targetIndex = i;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (targetIndex !== -1) {
+                        currentTaskIndex = targetIndex;
+                        openModalFromCard(taskCards[targetIndex], true);
                     } else {
                         closeModal();
                         location.reload();
