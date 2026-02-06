@@ -14,8 +14,9 @@ import uvicorn
 from core import (
     list_projects, list_tasks, read_task, write_task, delete_task,
     get_project_dir, get_next_task_number, get_project_description,
-    set_project_description, Task, VALID_STATUSES,
+    set_project_description, Task, VALID_STATUSES, BASE_DIR,
     list_attachments, add_attachment, get_attachment_path, delete_attachment,
+    get_backup_path, set_backup_path, get_config, set_config,
 )
 
 
@@ -73,12 +74,36 @@ class ProjectUpdate(BaseModel):
     description: Optional[str] = None
 
 
+def get_task_month(task) -> str | None:
+    """Get month string for task based on status."""
+    from datetime import datetime
+
+    if task.status in ("done", "approved"):
+        if task.completed:
+            return task.completed[:7]  # "YYYY-MM"
+    elif task.status == "work":
+        if task.started:
+            return task.started[:7]
+    elif task.status == "todo":
+        # Use mtime for todo tasks
+        if task.mtime:
+            dt = datetime.fromtimestamp(task.mtime)
+            return dt.strftime("%Y-%m")
+    return None
+
+
 @app.get("/", response_class=HTMLResponse)
 async def projects_cloud(request: Request):
     """Display projects as a cloud."""
+    from collections import defaultdict
+
     projects = []
     # Summary stats across all projects
     summary = {"total": 0, "hold": 0, "work": 0, "todo": 0, "done": 0, "approved": 0}
+    # Monthly stats: {month: {todo: N, work: N, done: N, approved: N}}
+    monthly_stats: dict[str, dict[str, int]] = defaultdict(
+        lambda: {"todo": 0, "work": 0, "done": 0, "approved": 0}
+    )
 
     for name in list_projects():
         tasks = list_tasks(name)
@@ -96,13 +121,53 @@ async def projects_cloud(request: Request):
         # Accumulate summary
         for key in summary:
             summary[key] += stats[key]
+        # Accumulate monthly stats by status
+        for t in tasks:
+            month = get_task_month(t)
+            if month and t.status in ("todo", "work", "done", "approved"):
+                monthly_stats[month][t.status] += 1
+
+    # Sort by month descending, take last 6 months
+    monthly_list = sorted(monthly_stats.items(), reverse=True)[:6]
 
     return templates.TemplateResponse("projects.html", {
         "request": request,
         "projects": projects,
         "summary": summary,
         "project_count": len(projects),
+        "monthly": monthly_list,
     })
+
+
+@app.get("/api/monthly/{month}")
+async def get_monthly_tasks(month: str):
+    """Get tasks for a specific month (format: YYYY-MM)."""
+    from datetime import datetime
+
+    tasks_list = []
+    for project_name in list_projects():
+        for t in list_tasks(project_name):
+            task_month = get_task_month(t)
+            if task_month == month and t.status in ("todo", "work", "done", "approved"):
+                # Determine the date to use for sorting
+                if t.status in ("done", "approved"):
+                    date_str = t.completed or ""
+                elif t.status == "work":
+                    date_str = t.started or ""
+                else:  # todo
+                    date_str = datetime.fromtimestamp(t.mtime).strftime("%Y-%m-%d %H:%M") if t.mtime else ""
+
+                tasks_list.append({
+                    "project": project_name,
+                    "number": t.number,
+                    "description": t.description,
+                    "status": t.status,
+                    "date": date_str,
+                })
+
+    # Sort by date descending (newest first)
+    tasks_list.sort(key=lambda x: x["date"], reverse=True)
+    return {"month": month, "tasks": tasks_list}
 
 
 @app.get("/project/{name}", response_class=HTMLResponse)
@@ -283,6 +348,114 @@ async def delete_attachment_endpoint(project: str, number: int, filename: str):
     if delete_attachment(project, number, filename):
         return {"ok": True}
     raise HTTPException(status_code=404, detail="Attachment not found")
+
+
+# =============================================================================
+# Settings API
+# =============================================================================
+
+class SettingsUpdate(BaseModel):
+    backup_path: Optional[str] = None
+
+
+@app.get("/api/settings")
+async def get_settings():
+    """Get current settings."""
+    return {
+        "backup_path": str(get_backup_path()) if get_backup_path() else None,
+        "last_backup": get_config().get("last_backup"),
+    }
+
+
+@app.post("/api/settings")
+async def update_settings(settings: SettingsUpdate):
+    """Update settings."""
+    if settings.backup_path is not None:
+        # Validate path
+        if settings.backup_path:
+            path = Path(settings.backup_path).expanduser()
+            if not path.exists():
+                try:
+                    path.mkdir(parents=True, exist_ok=True)
+                except Exception as e:
+                    raise HTTPException(status_code=400, detail=f"Cannot create backup path: {e}")
+        set_backup_path(settings.backup_path if settings.backup_path else None)
+    return {"ok": True}
+
+
+# =============================================================================
+# Backup functionality
+# =============================================================================
+
+def do_backup() -> bool:
+    """Perform backup if there are changes since last backup."""
+    import shutil
+    import hashlib
+
+    backup_path = get_backup_path()
+    if not backup_path:
+        return False
+
+    # Calculate hash of all task files to detect changes
+    def calc_hash() -> str:
+        h = hashlib.md5()
+        for project in sorted(list_projects()):
+            for task in sorted(list_tasks(project), key=lambda t: t.number):
+                h.update(f"{project}/{task.number}/{task.mtime}".encode())
+        return h.hexdigest()
+
+    current_hash = calc_hash()
+    config = get_config()
+    last_hash = config.get("last_backup_hash")
+
+    if current_hash == last_hash:
+        return False  # No changes
+
+    # Create backup
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H")
+    backup_dir = backup_path / timestamp
+
+    if backup_dir.exists():
+        return False  # Already backed up this hour
+
+    try:
+        shutil.copytree(BASE_DIR, backup_dir, ignore=shutil.ignore_patterns("config.json"))
+        config["last_backup"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+        config["last_backup_hash"] = current_hash
+        set_config(config)
+        return True
+    except Exception as e:
+        print(f"Backup failed: {e}")
+        return False
+
+
+async def backup_scheduler():
+    """Background task to run backup every hour."""
+    import asyncio
+    while True:
+        await asyncio.sleep(3600)  # Wait 1 hour
+        try:
+            if do_backup():
+                print(f"Backup completed at {datetime.now()}")
+        except Exception as e:
+            print(f"Backup error: {e}")
+
+
+@app.on_event("startup")
+async def start_backup_scheduler():
+    """Start the backup scheduler on app startup."""
+    import asyncio
+    asyncio.create_task(backup_scheduler())
+
+
+@app.post("/api/backup")
+async def trigger_backup():
+    """Manually trigger a backup."""
+    if not get_backup_path():
+        raise HTTPException(status_code=400, detail="Backup path not configured")
+    if do_backup():
+        return {"ok": True, "message": "Backup created"}
+    return {"ok": True, "message": "No changes to backup"}
 
 
 def main():

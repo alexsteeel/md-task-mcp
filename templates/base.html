@@ -488,6 +488,129 @@
             color: #000;
         }
 
+        /* Monthly summary */
+        .monthly-summary {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+            font-size: 0.85rem;
+        }
+
+        .month-stat {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--card-bg);
+            padding: 0.4rem 0.75rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+
+        .month-stat:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .month-label {
+            color: var(--text);
+            font-weight: 600;
+            min-width: 50px;
+        }
+
+        .month-cat {
+            padding: 0.15rem 0.4rem;
+            border-radius: 3px;
+            font-size: 0.75rem;
+            min-width: 20px;
+            text-align: center;
+        }
+
+        .month-cat.status-todo { background: var(--todo); color: #fff; }
+        .month-cat.status-work { background: var(--work); color: #000; }
+        .month-cat.status-done { background: var(--done); color: #fff; }
+        .month-cat.status-approved { background: var(--approved); color: #fff; }
+
+        /* Monthly tasks modal */
+        .monthly-modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 200;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .monthly-modal-overlay.active {
+            display: flex;
+        }
+
+        .monthly-modal {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 1.5rem;
+            max-width: 700px;
+            max-height: 80vh;
+            width: 90%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .monthly-modal h2 {
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+        }
+
+        .monthly-task-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .monthly-task-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem;
+            background: var(--bg);
+            border-radius: 6px;
+            font-size: 0.85rem;
+        }
+
+        .monthly-task-status {
+            padding: 0.15rem 0.4rem;
+            border-radius: 3px;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            min-width: 55px;
+            text-align: center;
+        }
+
+        .monthly-task-project {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            min-width: 80px;
+        }
+
+        .monthly-task-title {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .monthly-task-date {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+        }
+
         .depends {
             margin-top: 0.25rem;
             font-size: 0.6rem;

@@ -1,5 +1,17 @@
 # CLAUDE.md
 
+## UV Tool Installation - Template Updates
+
+When updating templates (HTML files in `templates/`), `uv tool install --force` does NOT update the cached template files due to uv caching.
+
+**Solution:** Use `--no-cache` flag to force rebuild:
+```bash
+uv tool uninstall md-task-mcp
+uv tool install --no-cache /media/bas/data/repo/github/md-task-mcp
+```
+
+Then restart tm-web.
+
 ## Screenshots and Private Data
 
 NEVER commit screenshots or files that may contain private/sensitive data to the repository. The `.playwright-mcp/` folder is gitignored for this reason.

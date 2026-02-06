@@ -59,6 +59,49 @@ def _setup_logging() -> logging.Logger:
 
 logger = _setup_logging()
 logger.info(f"md-task-mcp core loaded. BASE_DIR={BASE_DIR}, uid={os.getuid()}, gid={os.getgid()}")
+
+# Config file
+CONFIG_FILE = BASE_DIR / "config.json"
+
+
+def get_config() -> dict:
+    """Read config from config.json."""
+    import json
+    if CONFIG_FILE.exists():
+        try:
+            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            logger.error(f"Failed to read config: {e}")
+    return {}
+
+
+def set_config(config: dict) -> None:
+    """Write config to config.json."""
+    import json
+    BASE_DIR.mkdir(parents=True, exist_ok=True)
+    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+        json.dump(config, f, indent=2)
+    logger.info(f"Config saved: {config}")
+
+
+def get_backup_path() -> Path | None:
+    """Get backup path from config."""
+    config = get_config()
+    path = config.get("backup_path")
+    return Path(path) if path else None
+
+
+def set_backup_path(path: str | None) -> None:
+    """Set backup path in config."""
+    config = get_config()
+    if path:
+        config["backup_path"] = path
+    elif "backup_path" in config:
+        del config["backup_path"]
+    set_config(config)
+
+
 VALID_STATUSES = {"todo", "work", "done", "approved", "hold"}
 
 
